@@ -7,6 +7,32 @@ import logging
 from config import Colors
 
 
+def setup_logger(name: str = "OCRProcessor", enable_file_logging: bool = False) -> logging.Logger:
+    """Set up and configure a logger instance."""
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    
+    # Clear any existing handlers
+    logger.handlers = []
+    
+    # Add console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter('%(message)s')
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    
+    # Add file handler if enabled
+    if enable_file_logging:
+        file_handler = logging.FileHandler('ocr_processing.log')
+        file_handler.setLevel(logging.INFO)
+        file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+    
+    return logger
+
+
 class OCRLogger:
     """Custom logger for OCR processing with colored output only."""
     

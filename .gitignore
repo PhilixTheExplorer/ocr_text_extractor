@@ -1,5 +1,5 @@
 # OCR Text Extractor - Git Ignore File
-# Version 1.0.0
+# Version 1.1.0
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -134,14 +134,19 @@ dmypy.json
 # Google API Credentials and Tokens
 credentials.json
 token.json
+token.pickle
 client_secret*.json
 service-account*.json
 
-# OCR Processing Output Files
+# OCR Processing Output Files and Directories
 raw_texts/
 texts/
 images/
+output/
+temp_processing/
 *.txt
+!requirements.txt
+!LICENSE.txt
 combined_*.txt
 ocr_processing.log
 
@@ -149,8 +154,6 @@ ocr_processing.log
 *.tmp
 *.temp
 *~
-
-# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -158,9 +161,6 @@ ocr_processing.log
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Windows
-desktop.ini
 
 # IDE files
 .vscode/
@@ -172,7 +172,7 @@ desktop.ini
 # Backup files
 *.bak
 *.backup
-main_old.py
+*_old.*
 
 # Test files
 test_*.py
@@ -186,8 +186,14 @@ config_local.py
 # Virtual environment
 .virtualenv/
 .conda/
+venv/
 
 # Project specific
 example_output/
 sample_images/
 debug/
+
+# GUI specific
+preview_cache/
+*.pickle
+!token.pickle  # Allow token.pickle for GUI auth

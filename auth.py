@@ -12,6 +12,7 @@ import argparse
 from googleapiclient import discovery
 from oauth2client import client, tools
 from oauth2client.file import Storage
+from oauth2client.tools import run_flow
 
 from config import OCRConfig
 from logger import OCRLogger
@@ -22,7 +23,7 @@ class GoogleDriveAuth:
     
     def __init__(self, config: OCRConfig, flags: Optional[argparse.Namespace] = None):
         self.config = config
-        self.flags = flags
+        self.flags = flags or tools.argparser.parse_args([])
         self.logger = OCRLogger(enable_file_logging=config.enable_file_logging)
         self.service = None
     
@@ -47,11 +48,7 @@ class GoogleDriveAuth:
             )
             flow.user_agent = self.config.application_name
             
-            if self.flags:
-                credentials = tools.run_flow(flow, store, self.flags)
-            else:
-                credentials = tools.run(flow, store)
-            
+            credentials = run_flow(flow, store, self.flags)
             self.logger.success(f'Credentials stored to {credential_path}')
         
         return credentials
@@ -71,3 +68,12 @@ class GoogleDriveAuth:
         except Exception as e:
             self.logger.error(f"Failed to initialize Google Drive service: {e}")
             sys.exit(1)
+
+def authenticate_google_drive():
+    """
+    Authenticate with Google Drive and return the service object.
+    This is a convenience function for the GUI application.
+    """
+    config = OCRConfig()
+    auth = GoogleDriveAuth(config)
+    return auth.initialize_service()
