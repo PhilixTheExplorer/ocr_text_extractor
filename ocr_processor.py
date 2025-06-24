@@ -6,9 +6,12 @@ Handles image processing and text extraction using Google Drive API.
 import io
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+import time
+from socket import timeout as SocketTimeout
 
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from googleapiclient.discovery import build
 
 from config import OCRConfig, Colors
 from logger import OCRLogger
@@ -19,16 +22,21 @@ from text_processor import TextProcessor
 class OCRProcessor:
     """Handles OCR processing using Google Drive API with improved error handling and logging."""
     
-    def __init__(self, config: Optional[OCRConfig] = None, flags=None):
-        """Initialize OCR processor with configuration."""
-        self.config = config or OCRConfig()
-        self.logger = OCRLogger(enable_file_logging=self.config.enable_file_logging)
+    def __init__(self, config_or_credentials=None, flags=None):
+        """Initialize OCR processor with configuration or credentials."""
+        if isinstance(config_or_credentials, OCRConfig):
+            self.config = config_or_credentials
+            self.logger = OCRLogger(enable_file_logging=self.config.enable_file_logging)
+            self.auth = GoogleDriveAuth(self.config, flags)
+            self.service = None
+        else:
+            # For GUI usage with direct credentials
+            self.config = OCRConfig()
+            self.logger = OCRLogger(enable_file_logging=False)  # Disable file logging for GUI
+            self.service = build('drive', 'v3', credentials=config_or_credentials)
+            
         self.flags = flags
-        self.service = None
         self._setup_directories()
-        
-        # Initialize Google Drive authentication
-        self.auth = GoogleDriveAuth(self.config, flags)
         
         # Initialize text processor
         self.text_processor = TextProcessor(
@@ -36,6 +44,13 @@ class OCRProcessor:
             self.texts_dir, 
             self.raw_texts_dir
         )
+        
+        # Configure retry settings
+        self.max_retries = 3
+        self.retry_delay = 5  # seconds
+        self.upload_timeout = 300  # 5 minutes
+        self.download_timeout = 300  # 5 minutes
+        self.chunk_size = 262144  # 256KB chunks for upload/download
     
     def _setup_directories(self) -> None:
         """Create necessary directories if they don't exist."""
@@ -81,13 +96,33 @@ class OCRProcessor:
         self.logger.info(f"Found {len(unique_files)} unique image file(s) to process")
         return unique_files
     
+    def _execute_with_retry(self, request, operation_name="API request"):
+        """Execute a request with retry logic."""
+        for attempt in range(self.max_retries):
+            try:
+                if self.config.verbose:
+                    self.logger.debug(f"Attempt {attempt + 1} of {self.max_retries} for {operation_name}")
+                return request.execute()
+            except (HttpError, SocketTimeout, TimeoutError) as e:
+                if attempt == self.max_retries - 1:  # Last attempt
+                    raise
+                wait_time = self.retry_delay * (attempt + 1)  # Exponential backoff
+                if self.config.verbose:
+                    self.logger.warning(f"{operation_name} failed, retrying in {wait_time} seconds... Error: {str(e)}")
+                time.sleep(wait_time)
+    
     def extract_text_from_image(self, image_path: Path) -> Tuple[bool, Optional[str]]:
         """Extract text from a single image using Google Drive OCR."""
         try:
             imgname = image_path.name
-            name_without_ext = image_path.stem
-            raw_txtfile = self.raw_texts_dir / f'{name_without_ext}.txt'
-            txtfile = self.texts_dir / f'{name_without_ext}.txt'
+            # Get the PDF name and page number from the image path
+            # Expected format: .../pdf_name/page_X.jpg
+            pdf_name = image_path.parent.name
+            page_num = ''.join(filter(str.isdigit, image_path.stem))  # Extract number from page_X
+            
+            # Create text files with the expected naming convention
+            raw_txtfile = self.raw_texts_dir / f'{pdf_name}_page_{page_num}.txt'
+            txtfile = self.texts_dir / f'{pdf_name}_page_{page_num}.txt'
             
             # Skip if already processed
             if txtfile.exists() and raw_txtfile.exists():
@@ -103,64 +138,91 @@ class OCRProcessor:
             # Upload image to Google Drive for OCR
             mime_type = 'application/vnd.google-apps.document'
             
+            media = MediaFileUpload(
+                str(image_path), 
+                mimetype=mime_type, 
+                resumable=True,
+                chunksize=self.chunk_size
+            )
+            
             upload_request = self.service.files().create(
                 body={
                     'name': imgname,
                     'mimeType': mime_type
                 },
-                media_body=MediaFileUpload(
-                    str(image_path), 
-                    mimetype=mime_type, 
-                    resumable=True
-                )
+                media_body=media
             )
             
-            res = upload_request.execute()
+            res = self._execute_with_retry(upload_request, f"Upload of {imgname}")
             file_id = res['id']
             
-            # Download OCR text
-            export_request = self.service.files().export_media(
-                fileId=file_id, 
-                mimeType="text/plain"
-            )
-              # Download OCR text to a temporary buffer
-            temp_buffer = io.BytesIO()
-            downloader = MediaIoBaseDownload(
-                temp_buffer,
-                export_request
-            )
+            try:
+                # Download OCR text
+                export_request = self.service.files().export_media(
+                    fileId=file_id, 
+                    mimeType="text/plain"
+                )
+                
+                # Download OCR text to a temporary buffer
+                temp_buffer = io.BytesIO()
+                downloader = MediaIoBaseDownload(
+                    temp_buffer,
+                    export_request,
+                    chunksize=self.chunk_size
+                )
+                
+                done = False
+                download_timeout = time.time() + self.download_timeout
+                
+                while not done and time.time() < download_timeout:
+                    try:
+                        status, done = downloader.next_chunk()
+                        if status and self.config.verbose:
+                            self.logger.debug(f"Download progress: {int(status.progress() * 100)}%")
+                    except (HttpError, SocketTimeout) as e:
+                        if time.time() >= download_timeout:
+                            raise TimeoutError(f"Download timeout for {imgname}")
+                        time.sleep(2)  # Short delay before retry
+                        continue
+                
+                if not done:
+                    raise TimeoutError(f"Download timeout for {imgname}")
+                
+                # Process the downloaded content to remove Google metadata
+                temp_buffer.seek(0)
+                content = temp_buffer.read().decode('utf-8')
+                
+                # Remove first 2 lines (Google metadata)
+                lines = content.split('\n')
+                if len(lines) > 2:
+                    cleaned_content = '\n'.join(lines[2:])
+                else:
+                    cleaned_content = content
+                
+                # Save the cleaned raw text
+                with open(raw_txtfile, 'w', encoding='utf-8') as f:
+                    f.write(cleaned_content)
+                
+                # Save cleaned version of the text
+                cleaned_text = self.text_processor.clean_text(cleaned_content)
+                with open(txtfile, 'w', encoding='utf-8') as f:
+                    f.write(cleaned_text)
+                
+                if self.config.verbose:
+                    self.logger.success(f"{imgname} processed successfully")
+                return True, None
+                
+            finally:
+                # Clean up temporary file from Google Drive
+                try:
+                    self.service.files().delete(fileId=file_id).execute()
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete temporary file {file_id} from Google Drive: {e}")
             
-            done = False
-            while not done:
-                status, done = downloader.next_chunk()
-                if status and self.config.verbose:
-                    self.logger.debug(f"Download progress: {int(status.progress() * 100)}%")
-            
-            # Process the downloaded content to remove Google metadata
-            temp_buffer.seek(0)
-            content = temp_buffer.read().decode('utf-8')
-            
-            # Remove first 2 lines (Google metadata)
-            lines = content.split('\n')
-            if len(lines) > 2:
-                cleaned_content = '\n'.join(lines[2:])
-            else:
-                cleaned_content = content
-            
-            # Save the cleaned raw text
-            with open(raw_txtfile, 'w', encoding='utf-8') as f:
-                f.write(cleaned_content)
-            
-            # Clean up temporary file from Google Drive
-            self.service.files().delete(fileId=file_id).execute()
-            
-            # Process and clean the extracted text
-            self.text_processor.clean_text_file(raw_txtfile, txtfile)
-            
-            if self.config.verbose:
-                self.logger.success(f"{imgname} processed successfully")
-            return True, None
-            
+        except TimeoutError as e:
+            error_msg = f"Timeout error processing {image_path.name}: {e}"
+            self.logger.error(error_msg)
+            return False, error_msg
         except HttpError as e:
             error_msg = f"Google API error processing {image_path.name}: {e}"
             self.logger.error(error_msg)
