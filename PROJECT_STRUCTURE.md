@@ -113,7 +113,7 @@ OCR/
 ### Basic Usage (Same as before)
 
 ```bash
-python main.py
+uv run main.py
 ```
 
 ### Using Individual Modules

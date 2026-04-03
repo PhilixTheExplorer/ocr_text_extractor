@@ -221,7 +221,9 @@ OCR/
 1. Install Python dependencies:
 
    ```bash
-   pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib oauth2client
+   uv python install 3.11
+   uv venv --python 3.11
+   uv sync
    ```
 
 2. Set up Google Drive API credentials:
@@ -231,7 +233,7 @@ OCR/
 
 3. Run the application:
    ```bash
-   python main.py
+   uv run main.py
    ```
 
 ### 📊 Performance & Reliability
@@ -247,7 +249,7 @@ OCR/
 
 ### 📋 Requirements
 
-- Python 3.6+
+- Python 3.11+
 - Google Drive API credentials
 - Internet connection for API access
 

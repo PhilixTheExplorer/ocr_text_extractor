@@ -163,3 +163,69 @@ class TextProcessor:
             if processed_file.exists():
                 processed_file.unlink()
             i += 1
+
+    def _resolve_target_directory(self, target: str) -> Path:
+        """Map target key to concrete text directory."""
+        if target == "texts":
+            return self.texts_dir
+        if target == "raw_texts":
+            return self.raw_texts_dir
+        raise ValueError(f"Unsupported target directory key: {target}")
+
+    def _collect_text_files(self, target_dir: Path) -> list[Path]:
+        """Collect candidate text files and skip previously combined outputs."""
+        files = sorted(target_dir.glob("*.txt"))
+        return [p for p in files if not p.name.startswith("combined_")]
+
+    def combine_texts(self, target: str) -> Path | None:
+        """Combine text files with a simple separator format."""
+        target_dir = self._resolve_target_directory(target)
+        text_files = self._collect_text_files(target_dir)
+        if not text_files:
+            return None
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_name = (
+            f"combined_cleaned_{timestamp}.txt"
+            if target == "texts"
+            else f"combined_raw_{timestamp}.txt"
+        )
+        output_path = target_dir / output_name
+
+        with open(output_path, "w", encoding="utf-8") as out:
+            for idx, file_path in enumerate(text_files):
+                content = file_path.read_text(encoding="utf-8")
+                out.write(content.strip())
+                if idx < len(text_files) - 1:
+                    out.write("\n\n" + ("-" * 80) + "\n\n")
+
+        return output_path
+
+    def combine_texts_with_headers(self, target: str) -> Path | None:
+        """Combine text files with per-file headers for traceability."""
+        target_dir = self._resolve_target_directory(target)
+        text_files = self._collect_text_files(target_dir)
+        if not text_files:
+            return None
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_name = (
+            f"combined_cleaned_{timestamp}.txt"
+            if target == "texts"
+            else f"combined_raw_{timestamp}.txt"
+        )
+        output_path = target_dir / output_name
+
+        with open(output_path, "w", encoding="utf-8") as out:
+            out.write(f"Combined at: {datetime.now().isoformat()}\n")
+            out.write(f"Source directory: {target_dir}\n")
+            out.write(f"Total files: {len(text_files)}\n")
+            out.write("=" * 80 + "\n\n")
+
+            for file_path in text_files:
+                out.write(f"File: {file_path.name}\n")
+                out.write("-" * 80 + "\n")
+                out.write(file_path.read_text(encoding="utf-8").strip())
+                out.write("\n\n")
+
+        return output_path

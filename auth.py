@@ -4,15 +4,13 @@ Handles OAuth2 authentication flow and API service setup.
 """
 
 import sys
-import httplib2
 from pathlib import Path
 from typing import Optional
-import argparse
 
-from googleapiclient import discovery
-from oauth2client import client, tools
-from oauth2client.file import Storage
-from oauth2client.tools import run_flow
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 
 from config import OCRConfig
 from logger import OCRLogger
@@ -21,44 +19,50 @@ from logger import OCRLogger
 class GoogleDriveAuth:
     """Handles Google Drive API authentication and service initialization."""
     
-    def __init__(self, config: OCRConfig, flags: Optional[argparse.Namespace] = None):
+    def __init__(self, config: OCRConfig, flags: Optional[object] = None):
         self.config = config
-        self.flags = flags or tools.argparser.parse_args([])
+        # Kept for backward compatibility with existing call sites.
+        self.flags = flags
         self.logger = OCRLogger(enable_file_logging=config.enable_file_logging)
         self.service = None
+
+    def _get_scopes(self) -> list[str]:
+        """Normalize scope config to a list accepted by Google auth flow."""
+        return self.config.scopes if isinstance(self.config.scopes, list) else [self.config.scopes]
     
-    def get_credentials(self) -> client.OAuth2Credentials:
+    def get_credentials(self) -> Credentials:
         """Get valid user credentials from storage with improved error handling."""
         current_directory = Path.cwd()
-        credential_path = current_directory / 'token.json'
-        store = Storage(str(credential_path))
-        credentials = store.get()
+        token_path = current_directory / 'token.json'
+        scopes = self._get_scopes()
+        credentials = None
+
+        if token_path.exists():
+            credentials = Credentials.from_authorized_user_file(str(token_path), scopes)
         
-        if not credentials or credentials.invalid:
-            credentials_file = Path(self.config.credentials_file)
-            if not credentials_file.exists():
-                raise FileNotFoundError(
-                    f"Credentials file '{credentials_file}' not found. "
-                    f"Please ensure you have downloaded the credentials from Google Cloud Console."
-                )
-            
-            flow = client.flow_from_clientsecrets(
-                str(credentials_file), 
-                self.config.scopes
-            )
-            flow.user_agent = self.config.application_name
-            
-            credentials = run_flow(flow, store, self.flags)
-            self.logger.success(f'Credentials stored to {credential_path}')
-        
+        if not credentials or not credentials.valid:
+            if credentials and credentials.expired and credentials.refresh_token:
+                credentials.refresh(Request())
+            else:
+                credentials_file = Path(self.config.credentials_file)
+                if not credentials_file.exists():
+                    raise FileNotFoundError(
+                        f"Credentials file '{credentials_file}' not found. "
+                        f"Please ensure you have downloaded the credentials from Google Cloud Console."
+                    )
+                flow = InstalledAppFlow.from_client_secrets_file(str(credentials_file), scopes)
+                credentials = flow.run_local_server(port=0)
+
+            token_path.write_text(credentials.to_json(), encoding='utf-8')
+            self.logger.success(f'Credentials stored to {token_path}')
+
         return credentials
-    
+
     def initialize_service(self):
         """Initialize Google Drive API service with comprehensive error handling."""
         try:
             credentials = self.get_credentials()
-            http = credentials.authorize(httplib2.Http())
-            self.service = discovery.build('drive', 'v3', http=http)
+            self.service = build('drive', 'v3', credentials=credentials)
             if self.config.verbose:
                 self.logger.success("Google Drive API service initialized successfully")
             return self.service

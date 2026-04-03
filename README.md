@@ -18,16 +18,19 @@ A powerful OCR (Optical Character Recognition) tool that uses Google Drive API t
 
 ## Prerequisites
 
-- [Python 3.6+](https://www.python.org/) (recommended: Python 3.8+)
+- [Python 3.11+](https://www.python.org/)
+- [uv](https://docs.astral.sh/uv/) package and environment manager
 - Google Drive API credentials
 - Internet connection for API access
 
 ## Setup
 
-1. **Install Python Dependencies**
+1. **Create Environment and Install Dependencies (uv)**
 
    ```bash
-   pip3 install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib oauth2client
+   uv python install 3.11
+   uv venv --python 3.11
+   uv sync
    ```
 
 2. **Get Google Drive API Credentials**
@@ -62,41 +65,41 @@ After conversion, place all resulting images in the `images` folder within your 
 ### Basic Usage
 
 ```bash
-python main.py
+uv run main.py
 ```
 
 ### Advanced Usage with Options
 
 ```bash
 # Combine only processed texts (no raw texts) - this is the default
-python main.py --no-combine-texts
+uv run main.py --no-combine-texts
 
 # Include raw text combination
-python main.py --combine-raw
+uv run main.py --combine-raw
 
 # Include file headers in combined files
-python main.py --include-headers
+uv run main.py --include-headers
 
 # Combine both raw and processed texts with headers
-python main.py --combine-raw --include-headers
+uv run main.py --combine-raw --include-headers
 
 # Specify custom credentials file
-python main.py --credentials my_credentials.json
+uv run main.py --credentials my_credentials.json
 
 # Support only specific image formats
-python main.py --extensions .jpg .jpeg .png
+uv run main.py --extensions .jpg .jpeg .png
 
 # Enable verbose output for detailed logging
-python main.py --verbose
+uv run main.py --verbose
 
 # Enable file logging (creates ocr_processing.log)
-python main.py --enable-file-logging
+uv run main.py --enable-file-logging
 
 # Check version information
-python main.py --version
+uv run main.py --version
 
 # Combination example: verbose mode with raw text combination and headers
-python main.py --verbose --combine-raw --include-headers
+uv run main.py --verbose --combine-raw --include-headers
 ```
 
 ### Command Line Options

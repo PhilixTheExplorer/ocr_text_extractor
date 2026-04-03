@@ -1,0 +1,16 @@
+[project]
+name = "ocr-text-extractor"
+version = "1.1.0"
+description = "OCR tool using Google Drive API for text extraction"
+requires-python = ">=3.11"
+dependencies = [
+  "customtkinter>=5.2.0",
+  "pdf2image>=1.16.3",
+  "Pillow>=10.0.0",
+  "google-api-python-client>=2.0.0",
+  "google-auth-httplib2>=0.2.0",
+  "google-auth-oauthlib>=1.2.0",
+  "humanize>=4.0.0",
+  "psutil>=5.9.0",
+  "tkinterdnd2>=0.3.0"
+]

@@ -3,7 +3,7 @@ Configuration module for OCR Text Extractor.
 Contains all configuration classes and settings.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import List
 
@@ -18,7 +18,7 @@ class ProcessingMode(Enum):
 @dataclass
 class OCRConfig:
     """Configuration settings for OCR processing."""
-    scopes: str = 'https://www.googleapis.com/auth/drive'
+    scopes: List[str] = field(default_factory=lambda: ['https://www.googleapis.com/auth/drive'])
     credentials_file: str = 'credentials.json'
     application_name: str = 'OCR Text Extractor'
     supported_extensions: List[str] = None

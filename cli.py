@@ -5,8 +5,6 @@ Command line interface and argument parsing utilities.
 import argparse
 from typing import Dict
 
-from oauth2client import tools
-
 from config import OCRConfig, Colors
 from logger import OCRLogger
 
@@ -37,7 +35,6 @@ def setup_argument_parser() -> argparse.ArgumentParser:
     """Setup command line argument parser."""
     parser = argparse.ArgumentParser(
         description='OCR Text Extraction using Google Drive API - Version 1.0.0',
-        parents=[tools.argparser],
         conflict_handler='resolve'
     )
     
