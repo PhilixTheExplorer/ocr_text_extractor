@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/lexo/assets/lexo.png" alt="Lexo logo" width="120">
+  <img src="https://raw.githubusercontent.com/PhilixTheExplorer/lexo/main/src/lexo/assets/lexo.png" alt="Lexo logo" width="120">
 </p>
 
 <h1 align="center">Lexo</h1>
