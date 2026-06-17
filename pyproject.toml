@@ -4,18 +4,28 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lexo"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local-first desktop document OCR: PDF operations, smart OCR routing, and Burmese-first text handling."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 authors = [{ name = "PhilixTheExplorer" }]
 keywords = ["ocr", "pdf", "burmese", "myanmar", "document", "text-extraction", "desktop"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
-  "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: GNU Affero General Public License v3",
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Environment :: X11 Applications :: Qt",
+  "Intended Audience :: End Users/Desktop",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
   "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Office/Business",
   "Topic :: Text Processing",
   "Topic :: Utilities",
 ]
@@ -40,6 +50,8 @@ lexo = "lexo.cli.app:main"
 [project.urls]
 Homepage = "https://github.com/PhilixTheExplorer/lexo"
 Repository = "https://github.com/PhilixTheExplorer/lexo"
+Changelog = "https://github.com/PhilixTheExplorer/lexo/blob/main/CHANGELOG.md"
+Releases = "https://github.com/PhilixTheExplorer/lexo/releases"
 
 [dependency-groups]
 dev = [

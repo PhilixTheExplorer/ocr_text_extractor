@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-17
+
+### Changed
+
+- Use SPDX license expression for verified PyPI metadata.
+- Expand PyPI classifiers: add environment, intended audience, and per-version Python tags.
+- Add Changelog and Releases links to project URLs.
+- Fix README logo URL to absolute path so it renders on PyPI.
+
 ## [0.1.0] - 2026-06-17
 
 First public release. Lexo is a complete, from-scratch rebuild of the previous
@@ -46,6 +55,6 @@ Tkinter/CustomTkinter application has been removed.
 - The legacy v1 modules: the Tkinter GUI, the ad-hoc OCR processor, and pickle
   token storage.
 
-[Unreleased]: https://github.com/PhilixTheExplorer/lexo/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/PhilixTheExplorer/lexo/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/PhilixTheExplorer/lexo/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/PhilixTheExplorer/lexo/releases/tag/v0.1.0
-</content>
