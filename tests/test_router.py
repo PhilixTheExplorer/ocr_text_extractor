@@ -1,0 +1,59 @@
+import asyncio
+from collections.abc import Callable
+from pathlib import Path
+
+from helpers import FakeProvider
+from lexo.domain.events import Event, RunCompleted, RunStarted
+from lexo.domain.models import TextKind
+from lexo.pdf.pymupdf_toolkit import PyMuPdfToolkit
+from lexo.pipeline.engine import OcrEngine
+from lexo.pipeline.router import OcrRouter
+
+MakePdf = Callable[[Path, int], Path]
+
+
+def test_digital_pdf_skips_ocr(make_pdf: MakePdf, tmp_path: Path) -> None:
+    provider = FakeProvider(text="OCR")
+    router = OcrRouter(PyMuPdfToolkit(), OcrEngine(provider, retry_base_delay=0))
+    doc = asyncio.run(router.process_pdf(make_pdf(tmp_path / "a.pdf", 2)))
+    assert provider.calls == 0
+    assert "Page 1" in doc.pages[0].text
+
+
+def test_force_ocr_uses_provider(make_pdf: MakePdf, tmp_path: Path) -> None:
+    provider = FakeProvider(text="OCR")
+    router = OcrRouter(PyMuPdfToolkit(), OcrEngine(provider, retry_base_delay=0), dpi=72)
+    doc = asyncio.run(router.process_pdf(make_pdf(tmp_path / "a.pdf", 2), force_ocr=True))
+    assert provider.calls == 2
+    assert doc.pages[0].text.startswith("OCR")
+
+
+def test_batches_render_and_emit_single_run(make_pdf: MakePdf, tmp_path: Path) -> None:
+    events: list[Event] = []
+    provider = FakeProvider(text="OCR")
+    router = OcrRouter(
+        PyMuPdfToolkit(),
+        OcrEngine(provider, concurrency=1, retry_base_delay=0),
+        dpi=72,
+        batch_size=1,  # force one page per batch -> 3 engine.run calls
+    )
+    doc = asyncio.run(
+        router.process_pdf(make_pdf(tmp_path / "a.pdf", 3), force_ocr=True, on_event=events.append)
+    )
+    assert provider.calls == 3
+    assert all(page.text.startswith("OCR") for page in doc.pages)
+    # Batching must still look like a single run to subscribers.
+    assert sum(isinstance(e, RunStarted) for e in events) == 1
+    assert sum(isinstance(e, RunCompleted) for e in events) == 1
+
+
+def test_ocr_failure_marks_page_failed(make_pdf: MakePdf, tmp_path: Path) -> None:
+    provider = FakeProvider(fail_times=99)
+    router = OcrRouter(
+        PyMuPdfToolkit(),
+        OcrEngine(provider, max_retries=1, retry_base_delay=0),
+        dpi=72,
+    )
+    doc = asyncio.run(router.process_pdf(make_pdf(tmp_path / "a.pdf", 1), force_ocr=True))
+    assert doc.pages[0].kind == TextKind.FAILED
+    assert doc.pages[0].error == "transient failure"
