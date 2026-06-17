@@ -14,7 +14,7 @@ import sys
 from lexo.gui.qt import QT_AVAILABLE, QApplication
 from lexo.gui.resources import app_icon
 from lexo.gui.style import load_style
-from lexo.gui.window import MainWindow
+from lexo.gui.window.shell import MainWindow
 
 __all__ = ["MainWindow", "run"]
 

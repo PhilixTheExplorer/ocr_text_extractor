@@ -71,7 +71,7 @@ try:  # PySide6 is optional until the user syncs GUI dependencies.
     )
 
     QT_AVAILABLE = True
-except ModuleNotFoundError:  # pragma: no cover - depends on optional GUI env
+except ImportError:  # pragma: no cover - depends on optional GUI env
     QT_AVAILABLE = False
 
     class _MissingQt:
