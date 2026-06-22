@@ -78,6 +78,45 @@ lexo gui
 
 Run `lexo --help` (or `lexo pdf --help`) for the full command list.
 
+## Video walkthroughs
+
+Short walkthroughs (~1 min each) covering setup and common Burmese OCR workflows.
+
+OCR processing time depends on your network speed and Google Drive's response
+time. Lexo retries each page automatically on transient failures. If any pages
+still fail, a "Retry Failed Pages" button appears so you can re-run just those.
+
+### 1 - Install with uv and one-time Google Cloud setup
+
+Everything needed before the first OCR run:
+install Lexo with `uv tool install lexo` → create a Google Cloud project →
+enable the Drive API → configure the OAuth consent screen → create and download
+`credentials.json` → place it in the config directory → run `lexo login` to sign in.
+
+https://github.com/user-attachments/assets/92d86684-ebaa-438a-a6dd-880d49943405
+
+### 2 - Main OCR workflow: scanned Burmese PDF (GUI)
+
+Full GUI walkthrough for a scanned Burmese PDF:
+open the file → use the visual editor to **split two-up spreads** and **crop**
+headers/margins → **run Google Docs OCR** → review the per-page text → **export**
+to plain text.
+
+https://github.com/user-attachments/assets/b247cdc5-0421-4400-bc6c-f4dc35268268
+
+### 3 - Legacy Windows font PDF: getting real Burmese text with Google OCR (GUI)
+
+Some Burmese documents were created with old non-Unicode Windows fonts such as
+Win Innwa or Win Myanmar. These fonts render Burmese glyphs by mapping them onto
+ASCII codepoints, so the PDF actually stores English characters internally - the
+font is what makes them look Burmese on screen. When you run text extraction on
+such a file, you get those raw ASCII characters back, which is technically correct
+but not useful as Burmese text. This video shows how to recognise this case in the
+GUI and switch to Google Docs OCR instead, which reads the page visually and
+returns proper Unicode Burmese.
+
+https://github.com/user-attachments/assets/9cd60cbc-6a2b-4925-b076-89e97346e391
+
 ## Commands
 
 | Command | Purpose |
