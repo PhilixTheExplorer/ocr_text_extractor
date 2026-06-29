@@ -101,7 +101,14 @@ class OcrEngine:
                     emit(PageFailed(run_id=rid, page_index=image.index, error=error))
                     return
                 results[image.index] = res
-                emit(PageCompleted(run_id=rid, page_index=image.index, confidence=res.confidence))
+                emit(
+                    PageCompleted(
+                        run_id=rid,
+                        page_index=image.index,
+                        confidence=res.confidence,
+                        text=res.text,
+                    )
+                )
 
         tasks = [asyncio.create_task(worker(image)) for image in images]
         try:

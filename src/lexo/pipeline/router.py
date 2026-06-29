@@ -11,10 +11,10 @@ import hashlib
 import io
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
-from lexo.domain.events import Event, RunCancelled, RunCompleted, RunStarted
+from lexo.domain.events import Event, PageCompleted, RunCancelled, RunCompleted, RunStarted
 from lexo.domain.models import ExtractedDoc, OcrResult, PageImage, PageText, TextKind
 from lexo.domain.ranges import PageRanges
 from lexo.infra.hashing import sha256_file
@@ -23,6 +23,22 @@ from lexo.ports.pdf_toolkit import PdfToolkit
 
 Postprocessor = Callable[[str], str]
 EventSink = Callable[[Event], None]
+
+
+def _postprocessing_sink(
+    on_event: EventSink | None, postprocessor: Postprocessor | None
+) -> EventSink | None:
+    """Wrap a sink so each PageCompleted carries post-processed text, matching the
+    text the router stores for export. Other events pass through untouched."""
+    if on_event is None or postprocessor is None:
+        return on_event
+
+    def sink(event: Event) -> None:
+        if isinstance(event, PageCompleted):
+            event = replace(event, text=postprocessor(event.text))
+        on_event(event)
+
+    return sink
 
 
 @dataclass
@@ -60,7 +76,11 @@ class OcrRouter:
         ocr_failures: dict[int, str] = {}
         if need_ocr:
             ocr_results, ocr_failures = await self._ocr_in_batches(
-                pdf, need_ocr, lang=lang, on_event=on_event, token=token
+                pdf,
+                need_ocr,
+                lang=lang,
+                on_event=_postprocessing_sink(on_event, postprocessor),
+                token=token,
             )
 
         pages: list[PageText] = []
@@ -140,7 +160,12 @@ class OcrRouter:
             image.save(buffer, format="PNG")
         doc_id = sha256_file(path)
         page_image = PageImage(doc_id=doc_id, index=0, image_bytes=buffer.getvalue(), dpi=self.dpi)
-        run = await self.engine.run([page_image], lang=lang, on_event=on_event, token=token)
+        run = await self.engine.run(
+            [page_image],
+            lang=lang,
+            on_event=_postprocessing_sink(on_event, postprocessor),
+            token=token,
+        )
         result = run.results.get(0)
         text = result.text if result is not None else ""
         if postprocessor is not None:
@@ -176,7 +201,12 @@ class OcrRouter:
             images.append(
                 PageImage(doc_id=doc_id, index=index, image_bytes=buffer.getvalue(), dpi=self.dpi)
             )
-        run = await self.engine.run(images, lang=lang, on_event=on_event, token=token)
+        run = await self.engine.run(
+            images,
+            lang=lang,
+            on_event=_postprocessing_sink(on_event, postprocessor),
+            token=token,
+        )
         pages: list[PageText] = []
         for index in indexes:
             result = run.results.get(index)

@@ -3,7 +3,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from helpers import FakeProvider
-from lexo.domain.events import Event, RunCompleted, RunStarted
+from lexo.domain.events import Event, PageCompleted, RunCompleted, RunStarted
 from lexo.domain.models import TextKind
 from lexo.pdf.pymupdf_toolkit import PyMuPdfToolkit
 from lexo.pipeline.engine import OcrEngine
@@ -45,6 +45,24 @@ def test_batches_render_and_emit_single_run(make_pdf: MakePdf, tmp_path: Path) -
     # Batching must still look like a single run to subscribers.
     assert sum(isinstance(e, RunStarted) for e in events) == 1
     assert sum(isinstance(e, RunCompleted) for e in events) == 1
+
+
+def test_page_completed_text_is_postprocessed(make_pdf: MakePdf, tmp_path: Path) -> None:
+    events: list[Event] = []
+    provider = FakeProvider(text="OCR")
+    router = OcrRouter(PyMuPdfToolkit(), OcrEngine(provider, retry_base_delay=0), dpi=72)
+    doc = asyncio.run(
+        router.process_pdf(
+            make_pdf(tmp_path / "a.pdf", 2),
+            force_ocr=True,
+            postprocessor=str.upper,
+            on_event=events.append,
+        )
+    )
+    streamed = {e.page_index: e.text for e in events if isinstance(e, PageCompleted)}
+    # The text on each event matches the post-processed text the router stores.
+    assert streamed == {page.index: page.text for page in doc.pages}
+    assert all(text == text.upper() for text in streamed.values())
 
 
 def test_ocr_failure_marks_page_failed(make_pdf: MakePdf, tmp_path: Path) -> None:

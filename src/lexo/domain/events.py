@@ -31,6 +31,10 @@ class PageStarted(Event):
 class PageCompleted(Event):
     page_index: int
     confidence: float
+    # The recognized text, so subscribers can show a page's result the moment it
+    # lands instead of waiting for the whole run. Carries the post-processed text
+    # when the run has a postprocessor (see OcrRouter).
+    text: str = ""
 
 
 @dataclass(slots=True)

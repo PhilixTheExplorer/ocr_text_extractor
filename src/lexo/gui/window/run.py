@@ -86,6 +86,14 @@ class RunMixin:
             message = f"Processed {self.run_done + self.run_failed}/{self.run_total} page(s)"
         elif isinstance(event, PageCompleted):
             self.run_done += 1
+            # Show the page's result as it lands, instead of only after the whole
+            # run finishes. A fresh OCR result supersedes any prior edit.
+            self.page_texts[event.page_index] = event.text
+            self.edits.pop(event.page_index, None)
+            if event.page_index == self.current:
+                self.text.blockSignals(True)
+                self.text.setPlainText(self.effective_text(event.page_index))
+                self.text.blockSignals(False)
             self._set_page_status(event.page_index, "done")
             message = f"Processed {self.run_done + self.run_failed}/{self.run_total} page(s)"
         elif isinstance(event, PageFailed):

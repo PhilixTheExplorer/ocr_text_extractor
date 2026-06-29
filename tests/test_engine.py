@@ -23,6 +23,14 @@ def test_emits_lifecycle_events() -> None:
     assert any(isinstance(e, RunCompleted) for e in events)
 
 
+def test_page_completed_carries_text() -> None:
+    events: list[Event] = []
+    engine = OcrEngine(FakeProvider(text="T"), concurrency=1, retry_base_delay=0)
+    asyncio.run(engine.run(make_images(2), on_event=events.append))
+    done = {e.page_index: e.text for e in events if isinstance(e, PageCompleted)}
+    assert done == {0: "T p0", 1: "T p1"}
+
+
 def test_emit_lifecycle_false_suppresses_run_events() -> None:
     events: list[Event] = []
     engine = OcrEngine(FakeProvider(), concurrency=1, retry_base_delay=0)
