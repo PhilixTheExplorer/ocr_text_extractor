@@ -50,6 +50,8 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
         self._thumb_base: dict[int, QPixmap] = {}  # base thumbnails for status badges
         self.doc: ExtractedDoc | None = None  # last extract/OCR result
         self.worker: ProcessWorker | None = None
+        self.edit_worker: Any = None  # background page-edit thread (EditWorker)
+        self._pending_move: tuple[list[int], set[int]] = ([], set())
         self.token: CancellationToken | None = None
         self._cancelling = False
         self.run_total = 0
@@ -242,6 +244,11 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
                 self.token.cancel()
             self.worker.blockSignals(True)
             self.worker.wait()
+        # A page edit can't be cancelled mid-flight; just wait it out so its
+        # QThread is gone before we drop the working files.
+        if self.edit_worker is not None:
+            self.edit_worker.blockSignals(True)
+            self.edit_worker.wait()
         self._save_window_state()
         shutil.rmtree(self._tmpdir, ignore_errors=True)
         super().closeEvent(event)
@@ -305,7 +312,7 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
 
     def _refresh(self) -> None:
         has_doc = self.page_count > 0
-        busy = self.worker is not None
+        busy = self.worker is not None or self.edit_worker is not None
         is_pdf = self.document.is_pdf if self.document else False
         editable = has_doc and not busy
         if hasattr(self, "extract_mode_btn"):
@@ -315,8 +322,11 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
         export_text = f"Export {self.format.currentText()}" if hasattr(self, "format") else "Export"
         self.export_act.setText(export_text)
         self.run_act.setEnabled(has_doc and not busy)
-        self.cancel_act.setEnabled(busy and not self._cancelling)
-        self.cancel_act.setVisible(busy)
+        # Only an OCR/extract run is cancellable; a page edit is not, so the Cancel
+        # control tracks the run worker, not the general busy state.
+        ocr_busy = self.worker is not None
+        self.cancel_act.setEnabled(ocr_busy and not self._cancelling)
+        self.cancel_act.setVisible(ocr_busy)
         self.close_act.setEnabled(has_doc and not busy)
         has_failed = self.doc is not None and bool(self.doc.failed_pages)
         self.retry_failed_act.setEnabled(has_failed and not busy)
@@ -331,6 +341,17 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
         self.prev_act.setEnabled(has_doc and not busy and self.current > 0)
         self.next_act.setEnabled(has_doc and not busy and self.current < self.page_count - 1)
         self.page_input.setEnabled(has_doc and not busy)
+        # Page operations (menu + pages-strip context menu) must not start another
+        # edit while one is running, or during an OCR run.
+        for act in (
+            self.move_up_act,
+            self.move_down_act,
+            self.rotate_left_act,
+            self.rotate_right_act,
+            self.extract_pages_act,
+            self.remove_pages_act,
+        ):
+            act.setEnabled(editable)
         self.tune.set_state(editable, is_pdf)
         if hasattr(self, "central_stack"):
             self.central_stack.setCurrentWidget(

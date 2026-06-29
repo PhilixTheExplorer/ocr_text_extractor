@@ -10,7 +10,7 @@ import base64
 from dataclasses import replace
 from pathlib import Path
 
-from lexo.domain.models import ExtractedDoc, TextKind
+from lexo.domain.models import ExtractedDoc, PageText, TextKind
 from lexo.domain.ranges import PageRanges
 from lexo.export import EXTENSIONS
 from lexo.gui.constants import IMAGE_FILTER
@@ -133,10 +133,14 @@ class DocumentIOMixin:
 
     def _load_page_model(self) -> None:
         assert self.document is not None
+        self.page_count = self.document.page_count
+        self._apply_scan_to_model(self.document.scan_pages())
+
+    def _apply_scan_to_model(self, scan: list[PageText]) -> None:
+        """Set the per-page kind/status/text dicts from a fresh page scan."""
         self.page_kinds.clear()
         self.page_status.clear()
-        self.page_count = self.document.page_count
-        for page in self.document.scan_pages():
+        for page in scan:
             self.page_kinds[page.index] = page.kind
             if page.kind == TextKind.DIGITAL and page.text.strip():
                 self.page_texts[page.index] = page.text
@@ -144,27 +148,35 @@ class DocumentIOMixin:
             else:
                 self.page_status[page.index] = "needs OCR"
 
-    def _reload_pages(self, select: int | None = 0) -> None:
+    def _reload_pages(
+        self, select: int | None = 0, thumbs: dict[int, bytes | None] | None = None
+    ) -> None:
+        """Rebuild the page strip. When `thumbs` is given (pre-rendered off the UI
+        thread by the edit worker), use those bytes instead of rendering here, so
+        no PyMuPDF work happens on the UI thread."""
         self.pages.blockSignals(True)
         self.pages.clear()
         self._thumb_base.clear()
         pdf_doc = None
         try:
-            if self.document is not None and self.document.is_pdf:
+            if thumbs is None and self.document is not None and self.document.is_pdf:
                 import pymupdf
 
                 assert self.document.work_path is not None
                 pdf_doc = pymupdf.open(self.document.work_path)
             for index in range(self.page_count):
                 item = QListWidgetItem(self._page_item_text(index))
-                pixmap = self._thumbnail_pixmap(index, pdf_doc)
+                if thumbs is not None:
+                    pixmap = self._pixmap_from_bytes(thumbs.get(index))
+                else:
+                    pixmap = self._thumbnail_pixmap(index, pdf_doc)
                 if pixmap is not None:
                     self._thumb_base[index] = pixmap
                     item.setIcon(self._decorate_thumb(pixmap, self.page_status.get(index, "")))
                 self.pages.addItem(item)
                 if self.progress.isVisible():
                     self.progress.setValue(index + 1)
-                    if index % 4 == 0:
+                    if index % 8 == 0:
                         self._pump_ui()
         finally:
             if pdf_doc is not None:
@@ -174,6 +186,15 @@ class DocumentIOMixin:
         self._update_page_count_label()
         if select is not None:
             self.pages.setCurrentRow(select if self.page_count else -1)
+
+    @staticmethod
+    def _pixmap_from_bytes(data: bytes | None) -> QPixmap | None:
+        if not data:
+            return None
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(data, "PNG"):
+            return None
+        return pixmap
 
     def _thumbnail_pixmap(self, index: int, pdf_doc: object | None = None) -> QPixmap | None:
         if self.document is None:
@@ -216,6 +237,19 @@ class DocumentIOMixin:
         app = QApplication.instance()
         if app is not None:
             app.processEvents()
+
+    def _set_busy(self, message: str) -> None:
+        """Show an immediate busy state before a blocking UI-thread operation.
+
+        Page edits re-save the file, re-scan the text, and re-render every
+        thumbnail; on a large document that takes a noticeable moment, so give
+        the user feedback that something is happening rather than a frozen UI.
+        """
+        self.status.showMessage(message)
+        self.progress.setRange(0, 0)  # indeterminate until the thumbnail reload
+        self.progress.setValue(0)
+        self.progress.show()
+        self._pump_ui()
 
     def show_page(self, index: int) -> None:
         if index < 0 or self.page_count == 0 or self.document is None:

@@ -27,6 +27,8 @@ class RunMixin:
     def run_process(self) -> None:
         if self.document is None or self.page_count == 0 or self.worker is not None:
             return
+        if self.edit_worker is not None:
+            return
         self._save_current_text()
         mode = self._selected_mode_value()
         if mode == "extract" and not self.document.is_pdf:

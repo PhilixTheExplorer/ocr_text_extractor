@@ -11,6 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from lexo.domain.models import CropBox
+from lexo.gui.edit_worker import EditResult, EditWorker
 from lexo.gui.qt import QFileDialog, QInputDialog, QMenu, QMessageBox, QPoint
 from lexo.gui.tune_panel import SCOPE_ALL, SCOPE_SELECTED
 
@@ -57,39 +58,72 @@ class EditingMixin:
 
     # apply
 
-    def _run_edit(self, edit: Callable[[], bool]) -> None:
-        if self.document is None:
+    def _run_edit(self, edit: Callable[[], bool], *, message: str = "Applying edit…") -> None:
+        """Run a page edit off the UI thread: mutate the file, re-scan, and
+        re-render thumbnails in a worker, then rebuild the view on completion.
+        The page strip is locked meanwhile so the UI never touches PyMuPDF
+        concurrently with the worker."""
+        if self.document is None or self.worker is not None or self.edit_worker is not None:
             return
-        try:
-            structural = edit()
-        except Exception as exc:
-            QMessageBox.critical(self, "Edit failed", str(exc))
-            return
-        self._after_edit(structural)
+        # Set edit_worker before _begin_edit so the _refresh inside it sees the
+        # busy state and disables Run/OCR/edit controls.
+        self.edit_worker = EditWorker(self.document, edit)
+        self.edit_worker.finished_ok.connect(self._finalize_edit)
+        self.edit_worker.failed.connect(self._fail_edit)
+        self._begin_edit(message)
+        self.edit_worker.start()
 
-    def _after_edit(self, structural: bool) -> None:
-        if structural:
+    def _begin_edit(self, message: str) -> None:
+        self._set_busy(message)
+        # No page may be rendered on the UI thread while the worker uses PyMuPDF.
+        self.pages.setEnabled(False)
+        self._refresh()
+
+    def _finalize_edit(self, result: EditResult) -> None:
+        if result.structural:
             # Page count or order changed: any prior OCR/extract result is stale.
             self.doc = None
             self.page_texts.clear()
             self.edits.clear()
-            self._load_page_model()
+            self.page_count = result.page_count
+            assert result.scan is not None
+            self._apply_scan_to_model(result.scan)
         keep = min(self.current, self.page_count - 1)
-        self._reload_pages(select=None)
+        self.progress.setRange(0, max(1, self.page_count))
+        self.progress.setValue(0)
+        self._reload_pages(select=None, thumbs=result.thumbs)
+        self.pages.blockSignals(True)
         self.pages.setCurrentRow(keep)
+        self.pages.blockSignals(False)
         self.show_page(keep)
         self._update_title()
+        self._end_edit()
+
+    def _fail_edit(self, message: str) -> None:
+        self._end_edit()
+        QMessageBox.critical(self, "Edit failed", message)
+
+    def _end_edit(self) -> None:
+        worker = self.edit_worker
+        self.edit_worker = None
+        # Runs from the worker's own signal, so run() has returned; wait for the
+        # QThread to finish before releasing it (see ProcessWorker teardown).
+        if worker is not None:
+            worker.wait()
+            worker.deleteLater()
+        self.pages.setEnabled(True)
+        self.progress.hide()
         self._refresh()
 
     # operations
 
     def rotate_scope(self, degrees: int) -> None:
         rows = self._scope_rows()
-        self._run_edit(lambda: self.document.rotate(rows, degrees))
+        self._run_edit(lambda: self.document.rotate(rows, degrees), message="Rotating pages…")
 
     def rotate_selected(self, degrees: int) -> None:
         rows = self._selected_rows()
-        self._run_edit(lambda: self.document.rotate(rows, degrees))
+        self._run_edit(lambda: self.document.rotate(rows, degrees), message="Rotating pages…")
 
     def _toggle_crop(self, on: bool) -> None:
         # Only crop when a document is open; the Edit tab can be active with none.
@@ -138,49 +172,64 @@ class EditingMixin:
             QMessageBox.information(self, "Crop", "Set crop margins or draw a crop box first.")
             return
         rows = self._scope_rows()
-        try:
-            structural = self.document.crop(rows, self._crop_box_from_margins())
-        except Exception as exc:
-            QMessageBox.critical(self, "Crop failed", str(exc))
-            return
+        # Capture the box before resetting the crop UI; the edit runs later, on the
+        # worker thread.
+        box = self._crop_box_from_margins()
         self.tune.reset_crop()
-        self._after_edit(structural)
+        self._run_edit(lambda: self.document.crop(rows, box), message="Cropping pages…")
 
     def remove_selected(self) -> None:
         rows = self._selected_rows()
-        self._run_edit(lambda: self.document.remove(rows))
+        plural = "s" if len(rows) != 1 else ""
+        self._run_edit(
+            lambda: self.document.remove(rows), message=f"Removing {len(rows)} page{plural}…"
+        )
 
     def move_selected(self, offset: int) -> None:
         """Move the selected pages one slot up (offset -1) or down (+1)."""
         if self.document is None or self.page_count < 2:
             return
+        if self.worker is not None or self.edit_worker is not None:
+            return
         sel = set(self._selected_rows())
         order = reorder_for_move(self.page_count, sel, offset)
         if order is None:
             return
-        try:
-            self.document.reorder(order)
-        except Exception as exc:
-            QMessageBox.critical(self, "Move failed", str(exc))
-            return
-        new_selected = [pos for pos, val in enumerate(order) if val in sel]
-        new_current = order.index(self.current)
+        # Reorder keeps the page model, which the GUI remaps onto the new order, so
+        # the worker skips the rescan. Stash what the finalize step needs.
+        self._pending_move = (order, sel)
+        self.edit_worker = EditWorker(
+            self.document, lambda: self.document.reorder(order), scan=False
+        )
+        self.edit_worker.finished_ok.connect(self._finalize_move)
+        self.edit_worker.failed.connect(self._fail_edit)
+        self._begin_edit("Reordering pages…")
+        self.edit_worker.start()
+
+    def _finalize_move(self, result: EditResult) -> None:
+        order, sel = self._pending_move
+        self.page_count = result.page_count
         # Carry proofread text, edits, and status with each page to its new slot,
         # so reordering does not throw away work. order[pos] is the old index now
         # sitting at position pos.
         self._remap_page_state(order)
-        self._reload_pages(select=None)
+        self.progress.setRange(0, max(1, self.page_count))
+        self.progress.setValue(0)
+        self._reload_pages(select=None, thumbs=result.thumbs)
+        new_selected = [pos for pos, val in enumerate(order) if val in sel]
+        new_current = order.index(self.current)
         self.pages.blockSignals(True)
         self.pages.clearSelection()
         for pos in new_selected:
             item = self.pages.item(pos)
             if item is not None:
                 item.setSelected(True)
-        self.pages.blockSignals(False)
         self.pages.setCurrentRow(new_current)
+        self.pages.blockSignals(False)
         self.show_page(new_current)
         self._update_title()
-        self._refresh()
+        self._end_edit()
+        self.progress.hide()
 
     def _remap_page_state(self, order: list[int]) -> None:
         """Move per-page state so it follows pages through a reorder.
@@ -263,7 +312,7 @@ class EditingMixin:
             return
         ratio = self.preview.split_ratio()
         self.tune.reset_split()
-        self._run_edit(lambda: self.document.split_spreads(ratio))
+        self._run_edit(lambda: self.document.split_spreads(ratio), message="Splitting spreads…")
 
     def append_pdfs(self) -> None:
         if self.document is None or not self.document.is_pdf:
@@ -273,7 +322,7 @@ class EditingMixin:
         if not filenames:
             return
         extra = [Path(p) for p in filenames]
-        self._run_edit(lambda: self.document.append(extra))
+        self._run_edit(lambda: self.document.append(extra), message="Appending pages…")
 
     # pages-strip context menu
 
