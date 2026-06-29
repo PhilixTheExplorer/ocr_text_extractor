@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-29
+
+### Added
+
+- Per-page OCR results now appear in the GUI as each page finishes, instead of
+  only after the whole run completes.
+- Page edits (delete, rotate, crop, split, append, reorder) run in the
+  background with a busy indicator, so the window stays responsive on large
+  documents. Run/OCR, Save, and page operations are disabled while an edit runs.
+
+### Fixed
+
+- OCR no longer crashes the app on large multi-page runs. A single Google Drive
+  HTTP client was shared across the engine's concurrent workers; since httplib2
+  is not thread-safe this corrupted its state and faulted the process (Windows
+  heap corruption). Each worker now gets its own client.
+- OCR returned empty text (or failed to upload with HTTP 413) for PDFs with very
+  large pages. Pages now render as resolution-capped JPEGs that stay within
+  Google Drive's upload and OCR limits.
+- `lexo info` and `--version` now report the actual package version (the
+  reported value had drifted from the published version).
+
+### Changed
+
+- Hash a PDF once per OCR run instead of once per render batch (much faster on
+  large files).
+- Skip rebuilding the whole thumbnail strip when an OCR run finishes; per-page
+  status badges already update live.
+
 ## [0.1.1] - 2026-06-17
 
 ### Changed

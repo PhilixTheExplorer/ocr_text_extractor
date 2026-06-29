@@ -497,7 +497,6 @@ wheels = [
 
 [[package]]
 name = "lexo"
-version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "google-api-python-client" },

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lexo"
-version = "0.1.1"
+dynamic = ["version"]
 description = "Local-first desktop document OCR: PDF operations, smart OCR routing, and Burmese-first text handling."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -59,6 +59,10 @@ dev = [
   "mypy>=1.11",
   "pytest>=8.2",
 ]
+
+[tool.hatch.version]
+# Single source of truth: __version__ in the package.
+path = "src/lexo/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lexo"]
