@@ -43,7 +43,9 @@ class PdfToolkit(Protocol):
 
     def split_spreads(self, pdf: Path, out: Path, ratio: float = 0.5) -> Path: ...
 
-    def render(self, pdf: Path, ranges: PageRanges, dpi: int = 300) -> Iterator[PageImage]: ...
+    def render(
+        self, pdf: Path, ranges: PageRanges, dpi: int = 300, doc_id: str | None = None
+    ) -> Iterator[PageImage]: ...
 
     def extract_text_layer(
         self, pdf: Path, ranges: PageRanges, *, detect_scanned: bool = False

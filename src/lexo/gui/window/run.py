@@ -199,7 +199,11 @@ class RunMixin:
         if worker is not None:
             worker.wait()
             worker.deleteLater()
-        self._reload_pages(select=None)
+        # A run never changes page count or order, and each page's status badge is
+        # already redrawn live via _set_page_status, so there is nothing to rebuild
+        # here. Re-rendering every thumbnail (hundreds, on the UI thread) was the
+        # end-of-run freeze on large documents. Structural edits still rebuild via
+        # their own _reload_pages.
         self.pages.setCurrentRow(self.current)
         self._refresh()
 

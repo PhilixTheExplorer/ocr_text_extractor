@@ -62,6 +62,9 @@ class OcrRouter:
         token: CancellationToken | None = None,
     ) -> ExtractedDoc:
         page_count = self.toolkit.page_count(pdf)
+        # Hash the source once and reuse it for every rendered page and the final
+        # doc id; sha256 of a large PDF on every batch was pure waste.
+        doc_id = sha256_file(pdf)
         text_pages = self.toolkit.extract_text_layer(
             pdf, ranges or PageRanges.all_pages(), detect_scanned=True
         )
@@ -78,6 +81,7 @@ class OcrRouter:
             ocr_results, ocr_failures = await self._ocr_in_batches(
                 pdf,
                 need_ocr,
+                doc_id=doc_id,
                 lang=lang,
                 on_event=_postprocessing_sink(on_event, postprocessor),
                 token=token,
@@ -99,7 +103,7 @@ class OcrRouter:
             pages.append(PageText(index=pt.index, text=text, kind=kind, error=error))
 
         return ExtractedDoc(
-            doc_id=sha256_file(pdf),
+            doc_id=doc_id,
             source_name=pdf.name,
             page_count=page_count,
             pages=pages,
@@ -110,6 +114,7 @@ class OcrRouter:
         pdf: Path,
         need_ocr: list[int],
         *,
+        doc_id: str,
         lang: str | None,
         on_event: EventSink | None,
         token: CancellationToken | None,
@@ -127,7 +132,9 @@ class OcrRouter:
             for start in range(0, len(need_ocr), size):
                 chunk = need_ocr[start : start + size]
                 spec = ",".join(str(i + 1) for i in chunk)
-                images = list(self.toolkit.render(pdf, PageRanges.parse(spec), dpi=self.dpi))
+                images = list(
+                    self.toolkit.render(pdf, PageRanges.parse(spec), dpi=self.dpi, doc_id=doc_id)
+                )
                 run = await self.engine.run(
                     images,
                     lang=lang,

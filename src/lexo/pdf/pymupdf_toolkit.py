@@ -22,6 +22,23 @@ from lexo.domain.models import (
 from lexo.domain.ranges import PageRanges
 from lexo.infra.hashing import sha256_file
 
+# Google Docs OCR rejects very large uploads (HTTP 413) and silently returns no
+# text for over-large images. Cap the rendered page's longest edge so a page of
+# any physical size stays within those limits; OCR accuracy is unaffected at this
+# resolution. A point is 1/72 inch, so pixels = points / 72 * dpi.
+_MAX_OCR_EDGE_PX = 3500
+_OCR_JPEG_QUALITY = 85
+
+
+def _ocr_render_dpi(width_pt: float, height_pt: float, dpi: int) -> int:
+    """The requested dpi, lowered just enough that the longest rendered edge does
+    not exceed _MAX_OCR_EDGE_PX."""
+    longest_pt = max(width_pt, height_pt)
+    if longest_pt <= 0:
+        return dpi
+    max_dpi = _MAX_OCR_EDGE_PX * 72.0 / longest_pt
+    return max(1, min(dpi, int(max_dpi)))
+
 
 class PyMuPdfToolkit:
     def page_count(self, pdf: Path) -> int:
@@ -197,13 +214,30 @@ class PyMuPdfToolkit:
         finally:
             src.close()
 
-    def render(self, pdf: Path, ranges: PageRanges, dpi: int = 300) -> Iterator[PageImage]:
+    def render(
+        self, pdf: Path, ranges: PageRanges, dpi: int = 300, doc_id: str | None = None
+    ) -> Iterator[PageImage]:
         doc = pymupdf.open(pdf)
         try:
-            doc_id = sha256_file(pdf)
+            # Hashing the whole file is expensive on large PDFs; let a caller that
+            # already knows the id (e.g. a batched run) pass it in to avoid
+            # re-hashing on every batch.
+            doc_id = doc_id if doc_id is not None else sha256_file(pdf)
             for i in ranges.resolve(doc.page_count):
-                pix = doc[i].get_pixmap(dpi=dpi)
-                yield PageImage(doc_id=doc_id, index=i, image_bytes=pix.tobytes("png"), dpi=dpi)
+                page = doc[i]
+                eff_dpi = _ocr_render_dpi(page.rect.width, page.rect.height, dpi)
+                pix = page.get_pixmap(dpi=eff_dpi)
+                # JPEG, not PNG: scanned/photographic pages barely compress as PNG
+                # (tens of MB), which both blows past Drive's upload limit and
+                # exceeds what Google's OCR will process - it returns empty text.
+                # A capped-resolution JPEG stays small and OCRs identically.
+                yield PageImage(
+                    doc_id=doc_id,
+                    index=i,
+                    image_bytes=pix.tobytes("jpg", jpg_quality=_OCR_JPEG_QUALITY),
+                    dpi=eff_dpi,
+                    mimetype="image/jpeg",
+                )
         finally:
             doc.close()
 

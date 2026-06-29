@@ -31,6 +31,7 @@ class PageImage:
     index: int
     image_bytes: bytes
     dpi: int = 300
+    mimetype: str = "image/png"
 
 
 @dataclass(slots=True)

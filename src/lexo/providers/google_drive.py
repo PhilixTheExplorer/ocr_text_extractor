@@ -66,7 +66,7 @@ class GoogleDriveOcrProvider:
 
     def _ocr_sync(self, image: PageImage, lang: str) -> OcrResult:
         svc = self._svc()
-        media = MediaInMemoryUpload(image.image_bytes, mimetype="image/png", resumable=False)
+        media = MediaInMemoryUpload(image.image_bytes, mimetype=image.mimetype, resumable=False)
         name = f"lexo-ocr-{image.index}"
         meta = {"name": name, "mimeType": _GOOGLE_DOC}
         created = (

@@ -65,6 +65,37 @@ def test_page_completed_text_is_postprocessed(make_pdf: MakePdf, tmp_path: Path)
     assert all(text == text.upper() for text in streamed.values())
 
 
+def test_pdf_is_hashed_once_across_batches(
+    make_pdf: MakePdf, tmp_path: Path, monkeypatch: object
+) -> None:
+    import lexo.pdf.pymupdf_toolkit as toolkit_mod
+    import lexo.pipeline.router as router_mod
+
+    calls = {"router": 0, "toolkit": 0}
+    real = router_mod.sha256_file
+
+    def counting(key: str):
+        def wrapper(path: Path) -> str:
+            calls[key] += 1
+            return real(path)
+
+        return wrapper
+
+    monkeypatch.setattr(router_mod, "sha256_file", counting("router"))  # type: ignore[attr-defined]
+    monkeypatch.setattr(toolkit_mod, "sha256_file", counting("toolkit"))  # type: ignore[attr-defined]
+
+    router = OcrRouter(
+        PyMuPdfToolkit(),
+        OcrEngine(FakeProvider(text="OCR"), concurrency=1, retry_base_delay=0),
+        dpi=72,
+        batch_size=1,  # 4 pages -> 4 batches; each would re-hash if not threaded through
+    )
+    doc = asyncio.run(router.process_pdf(make_pdf(tmp_path / "a.pdf", 4), force_ocr=True))
+    # One hash total: the router computes the doc id once and passes it to render.
+    assert calls == {"router": 1, "toolkit": 0}
+    assert len(doc.pages) == 4
+
+
 def test_ocr_failure_marks_page_failed(make_pdf: MakePdf, tmp_path: Path) -> None:
     provider = FakeProvider(fail_times=99)
     router = OcrRouter(

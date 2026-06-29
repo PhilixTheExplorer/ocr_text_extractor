@@ -115,11 +115,26 @@ def test_split_spreads_bad_ratio(tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path
         tk.split_spreads(pdf, tmp_path / "x.pdf", ratio=1.5)
 
 
-def test_render_png(tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Path) -> None:
+def test_render_jpeg(tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Path) -> None:
+    # Pages render as JPEG (not PNG) so dense scans stay small enough for Drive
+    # upload and Google OCR; the mimetype travels with the image.
     pdf = make_pdf(tmp_path / "a.pdf", 2)
     images = list(tk.render(pdf, PageRanges.parse("1-2"), dpi=72))
     assert len(images) == 2
-    assert all(img.image_bytes[:4] == b"\x89PNG" for img in images)
+    assert all(img.image_bytes[:3] == b"\xff\xd8\xff" for img in images)
+    assert all(img.mimetype == "image/jpeg" for img in images)
+
+
+def test_ocr_render_dpi_caps_huge_pages() -> None:
+    from lexo.pdf.pymupdf_toolkit import _MAX_OCR_EDGE_PX, _ocr_render_dpi
+
+    # A normal-size page keeps the requested dpi.
+    assert _ocr_render_dpi(612, 792, 300) == 300
+    # A very large page (points) is rendered at a lower dpi so its longest edge
+    # does not exceed the cap.
+    eff = _ocr_render_dpi(1894, 2632, 300)
+    assert eff < 300
+    assert round(2632 / 72 * eff) <= _MAX_OCR_EDGE_PX
 
 
 def test_extract_text_layer(tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Path) -> None:
