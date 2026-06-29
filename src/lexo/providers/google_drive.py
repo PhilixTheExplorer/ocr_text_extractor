@@ -5,6 +5,12 @@ the recognized text, then deletes the temporary file. Uses the drive.file scope,
 so it only ever sees files it creates. Sync Drive calls run in a worker thread so
 the async engine can process pages concurrently.
 
+The Drive client is built on httplib2, which is not thread-safe: sharing one
+client across the engine's concurrent workers corrupts its connection/SSL state
+and crashes the process (Windows heap corruption). So each worker thread gets its
+own client via thread-local storage, while the OAuth credentials are loaded once
+and shared read-only (refreshed up front by `get_credentials`).
+
 Needs Google OAuth (run `lexo login`) and network access, so it is not exercised
 in the test suite.
 """
@@ -12,6 +18,7 @@ in the test suite.
 from __future__ import annotations
 
 import asyncio
+import threading
 from typing import Any
 
 from googleapiclient.http import MediaInMemoryUpload
@@ -27,15 +34,32 @@ class GoogleDriveOcrProvider:
     supports_offline = False
 
     def __init__(self, service: Any | None = None, default_lang: str = "my") -> None:
-        self._service = service
+        # An explicitly injected service (tests) is used as-is and shared;
+        # the per-thread clients are only built for the real Drive path.
+        self._injected = service
         self.default_lang = default_lang
+        self._local = threading.local()
+        self._creds: Any | None = None
+        self._creds_lock = threading.Lock()
+
+    def _credentials(self) -> Any:
+        from lexo.infra.auth_google import get_credentials
+
+        with self._creds_lock:
+            if self._creds is None:
+                self._creds = get_credentials(interactive=False)
+        return self._creds
 
     def _svc(self) -> Any:
-        if self._service is None:
+        if self._injected is not None:
+            return self._injected
+        svc = getattr(self._local, "service", None)
+        if svc is None:
             from lexo.infra.auth_google import build_drive_service
 
-            self._service = build_drive_service()
-        return self._service
+            svc = build_drive_service(self._credentials())
+            self._local.service = svc
+        return svc
 
     async def ocr_page(self, image: PageImage, *, lang: str | None = None) -> OcrResult:
         return await asyncio.to_thread(self._ocr_sync, image, lang or self.default_lang)
