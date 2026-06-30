@@ -58,6 +58,7 @@ class RunMixin:
         self.worker.event.connect(self._on_event)
         self.worker.done.connect(self._process_done)
         self.worker.failed.connect(self._process_failed)
+        self.worker.auth_required.connect(self._process_auth_required)
         self.worker.cancelled.connect(self._process_cancelled)
         self.run_total = 0
         self.run_done = 0
@@ -176,6 +177,23 @@ class RunMixin:
         self.run_progress_label.setText("Run failed")
         QMessageBox.critical(self, "Run failed", message)
         self.status.showMessage("Run failed")
+
+    def _process_auth_required(self, message: str) -> None:
+        self._finish_worker()
+        self.run_progress.setRange(0, 1)
+        self.run_progress.setValue(0)
+        self.run_progress_label.setText("Sign in required")
+        self.status.showMessage("Sign in required")
+        # Offer in-app sign-in; retry the run only after a confirmed fresh sign-in.
+        answer = QMessageBox.question(
+            self,
+            "Sign in required",
+            f"{message}\n\nSign in to Google now?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if answer == QMessageBox.Yes and self.login():
+            self.run_process()
 
     def _process_cancelled(self) -> None:
         self._finish_worker()

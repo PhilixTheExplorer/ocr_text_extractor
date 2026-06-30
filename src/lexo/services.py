@@ -52,6 +52,15 @@ class LexoService:
         from lexo.providers import get_provider
 
         use_lang = lang or self.settings.ocr_language
+        # Validate Google sign-in once, up front. Otherwise an expired or revoked
+        # token surfaces as every page failing through the engine's retry loop
+        # (slow, N cryptic errors) instead of one clear "sign in again" message.
+        if provider == "google":
+            import asyncio
+
+            from lexo.infra.auth_google import get_credentials
+
+            await asyncio.to_thread(get_credentials)
         engine = OcrEngine(get_provider(provider, use_lang), concurrency=self.settings.concurrency)
         router = OcrRouter(
             self.toolkit,

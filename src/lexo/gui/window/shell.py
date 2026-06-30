@@ -89,16 +89,19 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
         self.logout_act.setEnabled(signed_in)
         self.account_label.setText("Google: signed in" if signed_in else "Google: not signed in")
 
-    def login(self) -> None:
+    def login(self) -> bool:
+        """Run the Google sign-in flow. Returns True only on a fresh successful
+        sign-in, so callers can safely retry an action that needed auth."""
         from lexo.infra import auth_google
 
         try:
             auth_google.login()
         except Exception as exc:
             QMessageBox.critical(self, "Sign in failed", str(exc))
-            return
+            return False
         self._refresh_account()
         self.status.showMessage("Signed in with Google")
+        return True
 
     def logout(self) -> None:
         from lexo.infra import auth_google

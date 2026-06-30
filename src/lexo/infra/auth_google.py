@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import httplib2
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_httplib2 import AuthorizedHttp
@@ -27,6 +28,13 @@ from lexo.infra.token_keyring import KeyringTokenStore
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 _TOKEN_KEY = "google-oauth-token"
 _store = KeyringTokenStore()
+
+_SIGN_IN = "Sign in to Google to continue (CLI: `lexo login`)."
+
+
+class AuthError(RuntimeError):
+    """Google sign-in is missing, expired, or revoked. The message is safe to
+    show a user and tells them how to recover."""
 
 
 def _find_credentials_file() -> Path:
@@ -58,10 +66,17 @@ def _save(creds: Credentials) -> None:
 
 
 def is_authenticated() -> bool:
+    """Best-effort, offline check for a usable token. Detects a missing token or
+    one that is expired with no way to refresh, without any network call; a token
+    that has been revoked server-side can only be caught when actually used (see
+    `get_credentials`)."""
     try:
-        return _load() is not None
+        creds = _load()
     except Exception:
         return False
+    if creds is None:
+        return False
+    return creds.valid or bool(creds.expired and creds.refresh_token)
 
 
 def logout() -> None:
@@ -79,11 +94,18 @@ def get_credentials(*, interactive: bool = False) -> Credentials:
     if creds and creds.valid:
         return creds
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        _save(creds)
-        return creds
-    if not interactive:
-        raise RuntimeError("Not authenticated with Google. Run `lexo login` first.")
+        try:
+            creds.refresh(Request())
+        except RefreshError as exc:
+            # The refresh token itself is expired or was revoked; a stored token
+            # exists but is unusable.
+            if not interactive:
+                raise AuthError(f"Your Google sign-in has expired. {_SIGN_IN}") from exc
+        else:
+            _save(creds)
+            return creds
+    elif not interactive:
+        raise AuthError(f"Not signed in to Google. {_SIGN_IN}")
     login()
     refreshed = _load()
     assert refreshed is not None

@@ -10,6 +10,7 @@ import asyncio
 from pathlib import Path
 
 from lexo.gui.qt import QThread, Signal
+from lexo.infra.auth_google import AuthError
 from lexo.pipeline.engine import CancellationToken, Cancelled
 from lexo.services import LexoService
 
@@ -18,6 +19,7 @@ class ProcessWorker(QThread):
     event = Signal(object)
     done = Signal(object)
     failed = Signal(str)
+    auth_required = Signal(str)
     cancelled = Signal()
 
     def __init__(
@@ -54,6 +56,8 @@ class ProcessWorker(QThread):
                 )
         except Cancelled:
             self.cancelled.emit()
+        except AuthError as exc:  # pragma: no cover - shown through UI
+            self.auth_required.emit(str(exc))
         except Exception as exc:  # pragma: no cover - shown through UI
             self.failed.emit(str(exc))
         else:
