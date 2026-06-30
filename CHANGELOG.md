@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-30
+
+### Fixed
+
+- PDFs whose text layer is legacy non-Unicode "glyph soup" (e.g. some older
+  Burmese printing fonts encode their text as Private Use Area glyph ids) no
+  longer come back blank. Such a layer is detected as unusable and the page is
+  OCR'd instead of returning meaningless characters.
+- An expired or revoked Google sign-in is now surfaced clearly. The token is
+  validated once before a run, so it fails with a single "sign in again" message
+  instead of every page failing with a cryptic error; `is_authenticated` no
+  longer reports an unusable token as signed in.
+
+### Added
+
+- When OCR needs Google sign-in, the desktop app now offers to sign in in place
+  and retries the run on success.
+
 ## [0.2.0] - 2026-06-29
 
 ### Added
