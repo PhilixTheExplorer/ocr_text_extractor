@@ -29,6 +29,33 @@ from lexo.infra.hashing import sha256_file
 _MAX_OCR_EDGE_PX = 3500
 _OCR_JPEG_QUALITY = 85
 
+# Fraction of visible characters that must be Private Use Area glyphs before a
+# text layer is judged unusable. Real documents never approach this; legacy
+# non-Unicode fonts produce text that is almost entirely PUA.
+_PUA_JUNK_THRESHOLD = 0.5
+
+
+def _is_pua(codepoint: int) -> bool:
+    return (
+        0xE000 <= codepoint <= 0xF8FF  # BMP Private Use Area
+        or 0xF0000 <= codepoint <= 0xFFFFD  # Supplementary PUA-A
+        or 0x100000 <= codepoint <= 0x10FFFD  # Supplementary PUA-B
+    )
+
+
+def _is_glyph_soup(text: str) -> bool:
+    """True if the text layer is mostly Private Use Area glyphs.
+
+    Some legacy fonts (e.g. older Burmese printing fonts) embed a "text layer"
+    whose code points are font-specific PUA glyph ids, not Unicode. PyMuPDF reads
+    it back as non-empty text, but it is meaningless and renders as tofu, so the
+    page must be OCR'd as if it had no text layer at all."""
+    visible = [c for c in text if not c.isspace()]
+    if not visible:
+        return False
+    pua = sum(1 for c in visible if _is_pua(ord(c)))
+    return pua / len(visible) >= _PUA_JUNK_THRESHOLD
+
 
 def _ocr_render_dpi(width_pt: float, height_pt: float, dpi: int) -> int:
     """The requested dpi, lowered just enough that the longest rendered edge does
@@ -252,6 +279,10 @@ class PyMuPdfToolkit:
                 text = page.get_text("text")
                 if not text.strip():
                     kind = TextKind.SCANNED
+                elif _is_glyph_soup(text):
+                    # A legacy non-Unicode font's glyph soup is no better than
+                    # no text layer: drop it and let OCR produce real text.
+                    text, kind = "", TextKind.SCANNED
                 elif detect_scanned and self._is_image_page(page):
                     # A full-page image with a thin text layer is a scan whose
                     # embedded text is often wrong or in the wrong script; OCR it.

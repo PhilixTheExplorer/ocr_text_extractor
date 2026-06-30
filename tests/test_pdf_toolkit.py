@@ -143,3 +143,14 @@ def test_extract_text_layer(tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Pat
     assert len(pages) == 2
     assert all(p.kind == TextKind.DIGITAL for p in pages)
     assert "Page 1" in pages[0].text
+
+
+def test_glyph_soup_text_layer_routes_to_ocr() -> None:
+    from lexo.pdf.pymupdf_toolkit import _is_glyph_soup
+
+    # A legacy non-Unicode font reports its text as Private Use Area glyph ids.
+    pua_soup = "".join(chr(0xF000 + (i % 0x100)) for i in range(50))
+    assert _is_glyph_soup(pua_soup) is True
+    assert _is_glyph_soup("ပထမ စာမျက်နှာ") is False  # real Burmese Unicode
+    assert _is_glyph_soup("Page 1") is False
+    assert _is_glyph_soup("   \n\t ") is False
