@@ -14,6 +14,7 @@ from dataclasses import dataclass
 class _Range:
     start: int | None  # 1-based inclusive; None = start of document
     end: int | None  # 1-based inclusive; None = end of document
+    parity: str | None = None  # "odd" | "even" keeps only those 1-based pages
 
 
 class PageRanges:
@@ -34,7 +35,12 @@ class PageRanges:
             part = raw.strip()
             if not part:
                 continue
-            if "-" in part:
+            keyword = part.lower()
+            if keyword == "all":
+                ranges.append(_Range(None, None))
+            elif keyword in ("odd", "even"):
+                ranges.append(_Range(None, None, parity=keyword))
+            elif "-" in part:
                 lo, _, hi = part.partition("-")
                 lo, hi = lo.strip(), hi.strip()
                 start = cls._to_int(lo) if lo else None
@@ -68,8 +74,13 @@ class PageRanges:
             start = r.start or 1
             end = r.end or total_pages
             for p in range(start, end + 1):
-                if 1 <= p <= total_pages:
-                    out.add(p - 1)
+                if not 1 <= p <= total_pages:
+                    continue
+                if r.parity == "odd" and p % 2 == 0:
+                    continue
+                if r.parity == "even" and p % 2 == 1:
+                    continue
+                out.add(p - 1)
         return sorted(out)
 
     def __repr__(self) -> str:

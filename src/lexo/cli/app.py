@@ -107,7 +107,9 @@ def pdf_info(
 @pdf_app.command()
 def extract(
     pdf: Path = typer.Argument(..., exists=True, dir_okay=False),
-    pages: str = typer.Option(..., "--pages", "-p", help='Page range, e.g. "1-3,7,10-"'),
+    pages: str = typer.Option(
+        ..., "--pages", "-p", help='Pages: all/odd/even or a range, e.g. "1-3,7,10-"'
+    ),
     out: Path = typer.Option(..., "--out", "-o", help="Output PDF path"),
 ) -> None:
     """Extract a page range into a new PDF."""

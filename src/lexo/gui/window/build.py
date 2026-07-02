@@ -479,12 +479,21 @@ class BuildMixin:
         page_range_box = QGroupBox("Run Pages")
         page_range_layout = QVBoxLayout(page_range_box)
         self.pages_field = QLineEdit()
-        self.pages_field.setPlaceholderText("all or 1-3,7")
+        self.pages_field.setPlaceholderText("all, odd, even, or 1-3,7")
         self.pages_field.setToolTip(
-            "Page range for the run; selected thumbnails update as you type"
+            "Pages for the run; accepts all / odd / even or a range like 1-3,7. "
+            "Selected thumbnails update as you type."
         )
         self.pages_field.textChanged.connect(self._sync_selection_from_field)
         page_range_layout.addWidget(self.pages_field)
+        # Quick presets that fill the field (and so the selection) in one click.
+        preset_row = QHBoxLayout()
+        for label, spec in (("All", "all"), ("Odd", "odd"), ("Even", "even")):
+            btn = QPushButton(label)
+            btn.setToolTip(f"Run {label.lower()} pages")
+            btn.clicked.connect(lambda _=False, s=spec: self.pages_field.setText(s))
+            preset_row.addWidget(btn)
+        page_range_layout.addLayout(preset_row)
         self.tune.insert_pages_widget(page_range_box)
         # Open on the Run tab, not Edit, so the crop box only appears once the
         # user deliberately switches to the Edit tab.
