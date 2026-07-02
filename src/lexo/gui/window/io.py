@@ -268,6 +268,8 @@ class DocumentIOMixin:
             pixmap = QPixmap()
             pixmap.loadFromData(base64.b64decode(b64), "PNG")
             self.preview.set_image(pixmap)
+            # set_image clears the crop box; redraw it so it survives navigation.
+            self._sync_crop_to_preview()
         self.text.blockSignals(True)
         self.text.setPlainText(self.effective_text(self.current))
         self.text.blockSignals(False)
