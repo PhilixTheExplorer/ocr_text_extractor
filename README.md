@@ -202,6 +202,12 @@ uv run pytest
 
 Design notes live in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Contributing
+
+Bug reports, documentation fixes, and focused pull requests are welcome. Please
+see [CONTRIBUTING.md](CONTRIBUTING.md) for setup notes, recommended checks, and
+privacy guidance before attaching sample PDFs or images.
+
 ## License
 
 AGPL-3.0, to align with PyMuPDF. See [LICENSE](LICENSE).
