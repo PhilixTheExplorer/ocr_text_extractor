@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from lexo.export import EXTENSIONS
 from lexo.gui.icons import material_icon
-from lexo.gui.preview import PreviewLabel
+from lexo.gui.preview import PreviewLabel, PreviewScrollArea
 from lexo.gui.qt import (
     QAction,
     QButtonGroup,
@@ -80,6 +80,9 @@ class BuildMixin:
         button.clicked.connect(action.trigger)
         sync()
         return button
+
+    def _set_zoom_label(self, text: str) -> None:
+        self.zoom_label.setText(text)
 
     def _build_actions(self) -> None:
         self.open_act = QAction("Open PDF or Image...", self)
@@ -309,7 +312,13 @@ class BuildMixin:
         self.preview = PreviewLabel()
         self.preview.clear_image("Open a document to preview pages")
         self.preview.page_step.connect(self._step_page)
-        self.prev_act = QAction("◀", self)
+        self.preview.zoom_changed.connect(self._set_zoom_label)
+        self.preview_scroll = PreviewScrollArea()
+        self.preview_scroll.setWidget(self.preview)
+        self.preview_scroll.setWidgetResizable(False)
+        self.preview_scroll.setAlignment(Qt.AlignCenter)
+        self.preview_scroll.resized.connect(self.preview.set_viewport_size)
+        self.prev_act = QAction("", self)
         self.prev_act.setIcon(material_icon("chevron_left", size=22))
         self.prev_act.setToolTip("Previous page (Ctrl+PgUp)")
         self.prev_act.setShortcut("Ctrl+PgUp")
@@ -327,12 +336,24 @@ class BuildMixin:
         self.page_input.editingFinished.connect(self._commit_page_input)
         self.page_total_label = QLabel("/ 0")
         self.page_total_label.setObjectName("PageNavLabel")
-        self.next_act = QAction("▶", self)
+        self.next_act = QAction("", self)
         self.next_act.setIcon(material_icon("chevron_right", size=22))
         self.next_act.setToolTip("Next page (Ctrl+PgDown)")
         self.next_act.setShortcut("Ctrl+PgDown")
         self.next_act.setShortcutContext(Qt.ApplicationShortcut)
         self.next_act.triggered.connect(self.go_next)
+        self.zoom_out_act = QAction("Zoom Out", self)
+        self.zoom_out_act.setIcon(material_icon("zoom_out", size=22))
+        self.zoom_out_act.setToolTip("Zoom out (Ctrl+mouse wheel)")
+        self.zoom_out_act.triggered.connect(self.preview.zoom_out)
+        self.zoom_in_act = QAction("Zoom In", self)
+        self.zoom_in_act.setIcon(material_icon("zoom_in", size=22))
+        self.zoom_in_act.setToolTip("Zoom in (Ctrl+mouse wheel)")
+        self.zoom_in_act.triggered.connect(self.preview.zoom_in)
+        self.zoom_fit_act = QAction("Fit Page", self)
+        self.zoom_fit_act.setIcon(material_icon("fit_screen", size=22))
+        self.zoom_fit_act.setToolTip("Fit page to preview")
+        self.zoom_fit_act.triggered.connect(self.preview.reset_zoom)
 
         preview_nav = QHBoxLayout()
         preview_nav.setContentsMargins(8, 6, 8, 6)
@@ -341,12 +362,26 @@ class BuildMixin:
         self.prev_btn.setDefaultAction(self.prev_act)
         self.next_btn = QToolButton()
         self.next_btn.setDefaultAction(self.next_act)
+        self.zoom_out_btn = QToolButton()
+        self.zoom_out_btn.setDefaultAction(self.zoom_out_act)
+        self.zoom_label = QLabel(self.preview.zoom_status())
+        self.zoom_label.setObjectName("PageNavLabel")
+        self.zoom_label.setMinimumWidth(42)
+        self.zoom_label.setAlignment(Qt.AlignCenter)
+        self.zoom_in_btn = QToolButton()
+        self.zoom_in_btn.setDefaultAction(self.zoom_in_act)
+        self.zoom_fit_btn = QToolButton()
+        self.zoom_fit_btn.setDefaultAction(self.zoom_fit_act)
         preview_nav.addWidget(self.prev_btn)
         preview_nav.addWidget(self.page_nav_label)
         preview_nav.addWidget(self.page_input)
         preview_nav.addWidget(self.page_total_label)
         preview_nav.addWidget(self.next_btn)
         preview_nav.addStretch(1)
+        preview_nav.addWidget(self.zoom_out_btn)
+        preview_nav.addWidget(self.zoom_label)
+        preview_nav.addWidget(self.zoom_in_btn)
+        preview_nav.addWidget(self.zoom_fit_btn)
         preview_header = QWidget()
         preview_header.setObjectName("PaneHeader")
         preview_header.setFixedHeight(self.PANE_HEADER_HEIGHT)
@@ -358,7 +393,7 @@ class BuildMixin:
         preview_layout.setContentsMargins(0, 0, 0, 0)
         preview_layout.setSpacing(0)
         preview_layout.addWidget(preview_header)
-        preview_layout.addWidget(self.preview, 1)
+        preview_layout.addWidget(self.preview_scroll, 1)
 
         self.text = QPlainTextEdit()
         self.text.setObjectName("TextPreview")

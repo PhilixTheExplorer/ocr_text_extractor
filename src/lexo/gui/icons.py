@@ -56,6 +56,7 @@ CODEPOINTS: dict[str, int] = {
     "error": 0xE000,
     "file_copy": 0xE173,
     "file_download": 0xE2C4,
+    "fit_screen": 0xEA10,
     "folder_open": 0xE2C8,
     "format_paint": 0xE243,
     "info": 0xE88E,
@@ -74,6 +75,8 @@ CODEPOINTS: dict[str, int] = {
     "schedule": 0xE8B5,
     "system_update_alt": 0xE8D7,
     "vertical_split": 0xE949,
+    "zoom_in": 0xE8FF,
+    "zoom_out": 0xE900,
 }
 
 _family: str | None = None

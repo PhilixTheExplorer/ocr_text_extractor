@@ -5,7 +5,29 @@ from __future__ import annotations
 from typing import Any
 
 from lexo.domain.models import CropBox
-from lexo.gui.qt import QColor, QLabel, QPainter, QPen, QPixmap, QPoint, QRect, Qt, Signal
+from lexo.gui.qt import (
+    QColor,
+    QLabel,
+    QPainter,
+    QPen,
+    QPixmap,
+    QPoint,
+    QRect,
+    QScrollArea,
+    QSize,
+    Qt,
+    Signal,
+)
+
+
+class PreviewScrollArea(QScrollArea):
+    """Scroll container that tells the preview how much fit-to-page space exists."""
+
+    resized = Signal(QSize)
+
+    def resizeEvent(self, event: Any) -> None:
+        super().resizeEvent(event)
+        self.resized.emit(self.viewport().size())
 
 
 class PreviewLabel(QLabel):
@@ -21,10 +43,12 @@ class PreviewLabel(QLabel):
 
     crop_changed = Signal()
     page_step = Signal(int)  # wheel over the preview: -1 previous page, +1 next
+    zoom_changed = Signal(str)
 
     _EDGE_GRAB = 10  # px proximity to treat a click as grabbing an edge
     _MIN = 8  # px minimum crop width/height
     _WHEEL_NOTCH = 120  # one wheel detent; touchpads send fractions of this
+    _ZOOM_STEPS = (0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0)
 
     def __init__(self) -> None:
         super().__init__()
@@ -35,6 +59,12 @@ class PreviewLabel(QLabel):
         self._source: QPixmap | None = None
         self._shown: QPixmap | None = None
         self._offset = QPoint(0, 0)
+        self._viewport_size = QSize(0, 0)
+        self._fit_to_page = True
+        self._zoom = 1.0
+        self._pan_origin: QPoint | None = None
+        self._pan_h_start = 0
+        self._pan_v_start = 0
         self.crop_mode = False
         self.split_mode = False
         self._origin: QPoint | None = None
@@ -55,18 +85,40 @@ class PreviewLabel(QLabel):
         self._source = None
         self._shown = None
         self._selection = QRect()
+        if self._viewport_size.width() > 0 and self._viewport_size.height() > 0:
+            self.setFixedSize(self._viewport_size)
+        self.setCursor(Qt.ArrowCursor)
         self.setText(text)
 
     def _render(self) -> None:
         if self._source is None:
             return
-        shown = self._source.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        viewport = self._target_viewport()
+        fit = self._source.scaled(viewport, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        if self._fit_to_page:
+            shown = fit
+            widget_size = viewport
+        else:
+            target = QSize(
+                max(1, round(fit.width() * self._zoom)),
+                max(1, round(fit.height() * self._zoom)),
+            )
+            shown = self._source.scaled(target, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            widget_size = QSize(
+                max(viewport.width(), shown.width()),
+                max(viewport.height(), shown.height()),
+            )
+        if self.size() != widget_size:
+            self.setFixedSize(widget_size)
         self._shown = shown
         self._offset = QPoint(
             max(0, (self.width() - shown.width()) // 2),
             max(0, (self.height() - shown.height()) // 2),
         )
+        self.setText("")
         self.setPixmap(shown)
+        self._update_idle_cursor()
+        self.zoom_changed.emit(self.zoom_status())
 
     def resizeEvent(self, event: Any) -> None:
         # Keep the crop region (in relative terms) across a resize.
@@ -78,6 +130,80 @@ class PreviewLabel(QLabel):
         else:
             self._selection = QRect()
 
+    def set_viewport_size(self, size: QSize) -> None:
+        if size.width() <= 0 or size.height() <= 0:
+            return
+        box = self.selected_box()
+        self._viewport_size = size
+        self._render()
+        if box is not None:
+            self.set_relative_box(box)
+
+    def zoom_status(self) -> str:
+        return "Fit" if self._fit_to_page else f"{round(self._zoom * 100)}%"
+
+    def zoom_in(self) -> None:
+        self._set_zoom_step(1)
+
+    def zoom_out(self) -> None:
+        self._set_zoom_step(-1)
+
+    def reset_zoom(self) -> None:
+        box = self.selected_box()
+        self._fit_to_page = True
+        self._zoom = 1.0
+        self._render()
+        if box is not None:
+            self.set_relative_box(box)
+
+    def _set_zoom_step(self, direction: int) -> None:
+        box = self.selected_box()
+        if self._fit_to_page:
+            current = 1.0
+        else:
+            current = self._zoom
+        if direction > 0:
+            zoom = next((step for step in self._ZOOM_STEPS if step > current), self._ZOOM_STEPS[-1])
+        else:
+            zoom = next(
+                (step for step in reversed(self._ZOOM_STEPS) if step < current),
+                self._ZOOM_STEPS[0],
+            )
+        self._fit_to_page = False
+        self._zoom = zoom
+        self._render()
+        if box is not None:
+            self.set_relative_box(box)
+
+    def _target_viewport(self) -> QSize:
+        if self._viewport_size.width() > 0 and self._viewport_size.height() > 0:
+            return self._viewport_size
+        return QSize(max(1, self.width()), max(1, self.height()))
+
+    def _scroll_area(self) -> QScrollArea | None:
+        parent = self.parent()
+        while parent is not None:
+            if isinstance(parent, QScrollArea):
+                return parent
+            parent = parent.parent()
+        return None
+
+    def _can_pan(self) -> bool:
+        area = self._scroll_area()
+        if self._shown is None or area is None or self._fit_to_page:
+            return False
+        return (
+            area.horizontalScrollBar().maximum() > 0
+            or area.verticalScrollBar().maximum() > 0
+        )
+
+    def _idle_cursor(self) -> Any:
+        return Qt.OpenHandCursor if self._can_pan() else Qt.ArrowCursor
+
+    def _update_idle_cursor(self) -> None:
+        if not self.crop_mode and not self.split_mode and self._pan_origin is None:
+            self.setCursor(self._idle_cursor())
+
     # modes (mutually exclusive)
 
     def set_crop_mode(self, on: bool) -> None:
@@ -88,7 +214,7 @@ class PreviewLabel(QLabel):
             self._selection = QRect()
         self._origin = None
         self._drag_edges = set()
-        self.setCursor(Qt.CrossCursor if on else Qt.ArrowCursor)
+        self.setCursor(Qt.CrossCursor if on else self._idle_cursor())
         self.setToolTip("Drag the crop edges, or draw a box, then apply crop." if on else "")
         self.update()
 
@@ -98,7 +224,7 @@ class PreviewLabel(QLabel):
             self.crop_mode = False
             self._split_ratio = 0.5
         self._dragging_split = False
-        self.setCursor(Qt.SplitHCursor if on else Qt.ArrowCursor)
+        self.setCursor(Qt.SplitHCursor if on else self._idle_cursor())
         self.setToolTip("Drag the split line into place, then apply split." if on else "")
         self.update()
 
@@ -154,6 +280,14 @@ class PreviewLabel(QLabel):
             if self._image_rect().contains(event.position().toPoint()):
                 self._dragging_split = True
                 self._set_split_from(event.position().toPoint())
+        elif self._can_pan() and event.button() == Qt.LeftButton:
+            self._pan_origin = event.position().toPoint()
+            area = self._scroll_area()
+            if area is not None:
+                self._pan_h_start = area.horizontalScrollBar().value()
+                self._pan_v_start = area.verticalScrollBar().value()
+            self.setCursor(Qt.ClosedHandCursor)
+            event.accept()
 
     def mouseMoveEvent(self, event: Any) -> None:
         if self.crop_mode:
@@ -171,6 +305,14 @@ class PreviewLabel(QLabel):
         elif self.split_mode and self._dragging_split:
             # Move only while dragging (not on hover); x is clamped to the page.
             self._set_split_from(event.position().toPoint())
+        elif self._pan_origin is not None:
+            area = self._scroll_area()
+            if area is not None:
+                point = event.position().toPoint()
+                delta = point - self._pan_origin
+                area.horizontalScrollBar().setValue(self._pan_h_start - delta.x())
+                area.verticalScrollBar().setValue(self._pan_v_start - delta.y())
+            event.accept()
 
     def mouseReleaseEvent(self, event: Any) -> None:
         if self.crop_mode and (self._drag_edges or self._origin is not None):
@@ -181,8 +323,19 @@ class PreviewLabel(QLabel):
             self.update()
         elif self.split_mode:
             self._dragging_split = False
+        elif self._pan_origin is not None:
+            self._pan_origin = None
+            self.setCursor(self._idle_cursor())
+            event.accept()
 
     def wheelEvent(self, event: Any) -> None:
+        if event.modifiers() & Qt.ControlModifier:
+            if event.angleDelta().y() > 0:
+                self.zoom_in()
+            elif event.angleDelta().y() < 0:
+                self.zoom_out()
+            event.accept()
+            return
         # Scroll over the page to flip pages: wheel up = previous, down = next.
         # Accumulate so touchpads (which send sub-notch deltas) step smoothly.
         if self._shown is None:

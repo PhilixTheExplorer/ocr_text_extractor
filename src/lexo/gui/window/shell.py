@@ -343,6 +343,9 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
         self.format.setEnabled(not busy)
         self.prev_act.setEnabled(has_doc and not busy and self.current > 0)
         self.next_act.setEnabled(has_doc and not busy and self.current < self.page_count - 1)
+        self.zoom_out_act.setEnabled(has_doc and not busy)
+        self.zoom_in_act.setEnabled(has_doc and not busy)
+        self.zoom_fit_act.setEnabled(has_doc and not busy)
         self.page_input.setEnabled(has_doc and not busy)
         # Page operations (menu + pages-strip context menu) must not start another
         # edit while one is running, or during an OCR run.
