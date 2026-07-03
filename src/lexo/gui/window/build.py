@@ -308,6 +308,7 @@ class BuildMixin:
     def _build_work_surface(self) -> None:
         self.preview = PreviewLabel()
         self.preview.clear_image("Open a document to preview pages")
+        self.preview.page_step.connect(self._step_page)
         self.prev_act = QAction("◀", self)
         self.prev_act.setIcon(material_icon("chevron_left", size=22))
         self.prev_act.setToolTip("Previous page (Ctrl+PgUp)")

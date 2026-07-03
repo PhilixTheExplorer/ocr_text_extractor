@@ -289,6 +289,14 @@ class DocumentIOMixin:
         if self.page_count and self.current < self.page_count - 1:
             self.pages.setCurrentRow(self.current + 1)
 
+    def _step_page(self, step: int) -> None:
+        """Move `step` pages from the current one, clamped to the document."""
+        if self.page_count == 0:
+            return
+        target = min(max(self.current + step, 0), self.page_count - 1)
+        if target != self.current:
+            self.pages.setCurrentRow(target)
+
     def _commit_page_input(self) -> None:
         if self.page_count == 0:
             return

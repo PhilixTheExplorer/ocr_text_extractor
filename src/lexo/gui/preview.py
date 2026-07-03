@@ -20,9 +20,11 @@ class PreviewLabel(QLabel):
     """
 
     crop_changed = Signal()
+    page_step = Signal(int)  # wheel over the preview: -1 previous page, +1 next
 
     _EDGE_GRAB = 10  # px proximity to treat a click as grabbing an edge
     _MIN = 8  # px minimum crop width/height
+    _WHEEL_NOTCH = 120  # one wheel detent; touchpads send fractions of this
 
     def __init__(self) -> None:
         super().__init__()
@@ -40,6 +42,7 @@ class PreviewLabel(QLabel):
         self._drag_edges: set[str] = set()
         self._split_ratio = 0.5
         self._dragging_split = False
+        self._wheel_accum = 0
 
     def set_image(self, pixmap: QPixmap) -> None:
         self._source = pixmap
@@ -178,6 +181,24 @@ class PreviewLabel(QLabel):
             self.update()
         elif self.split_mode:
             self._dragging_split = False
+
+    def wheelEvent(self, event: Any) -> None:
+        # Scroll over the page to flip pages: wheel up = previous, down = next.
+        # Accumulate so touchpads (which send sub-notch deltas) step smoothly.
+        if self._shown is None:
+            event.ignore()
+            return
+        self._wheel_accum += event.angleDelta().y()
+        step = 0
+        while self._wheel_accum >= self._WHEEL_NOTCH:
+            self._wheel_accum -= self._WHEEL_NOTCH
+            step -= 1
+        while self._wheel_accum <= -self._WHEEL_NOTCH:
+            self._wheel_accum += self._WHEEL_NOTCH
+            step += 1
+        if step:
+            self.page_step.emit(step)
+        event.accept()
 
     # crop geometry helpers
 
