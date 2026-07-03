@@ -101,7 +101,3 @@ Tkinter/CustomTkinter application has been removed.
 
 - The legacy v1 modules: the Tkinter GUI, the ad-hoc OCR processor, and pickle
   token storage.
-
-[Unreleased]: https://github.com/PhilixTheExplorer/lexo/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/PhilixTheExplorer/lexo/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/PhilixTheExplorer/lexo/releases/tag/v0.1.0
