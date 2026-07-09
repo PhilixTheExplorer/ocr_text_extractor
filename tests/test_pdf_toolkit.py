@@ -81,6 +81,30 @@ def test_crop_shrinks_page(tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Path
     assert after[1] < before[1]
 
 
+def test_crop_twice_insets_within_visible_region(
+    tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Path
+) -> None:
+    pdf = make_pdf(tmp_path / "a.pdf", 1)
+    box = CropBox(left=0.1, top=0.1, right=0.9, bottom=0.9)
+    once = tk.crop(pdf, box, tmp_path / "c1.pdf")
+    twice = tk.crop(once, box, tmp_path / "c2.pdf")
+
+    import pymupdf
+
+    src = pymupdf.open(pdf)
+    media = src[0].rect
+    src.close()
+    result = pymupdf.open(twice)
+    cb = result[0].cropbox
+    result.close()
+
+    # Two nested 10% insets: 0.1 + 0.1*0.8 = 0.18 in, 0.82 out.
+    assert cb.x0 == pytest.approx(media.width * 0.18)
+    assert cb.x1 == pytest.approx(media.width * 0.82)
+    assert cb.y0 == pytest.approx(media.height * 0.18)
+    assert cb.y1 == pytest.approx(media.height * 0.82)
+
+
 def test_rotate(tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Path) -> None:
     pdf = make_pdf(tmp_path / "a.pdf", 2)
     out = tk.rotate(pdf, 90, tmp_path / "r.pdf")

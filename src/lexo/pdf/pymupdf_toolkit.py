@@ -169,8 +169,10 @@ class PyMuPdfToolkit:
                 if i not in selected:
                     continue
                 page = doc[i]
-                r = page.rect
                 if box.relative:
+                    # cropbox, not page.rect: set_cropbox wants mediabox-relative
+                    # coords, so a second crop insets the visible region.
+                    r = page.cropbox
                     new = pymupdf.Rect(
                         r.x0 + box.left * r.width,
                         r.y0 + box.top * r.height,
