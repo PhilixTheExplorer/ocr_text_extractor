@@ -227,15 +227,26 @@ class PyMuPdfToolkit:
         try:
             dst = pymupdf.open()
             for i in range(src.page_count):
-                r = src[i].rect
+                page = src[i]
+                # Split page.rect (the displayed box) so halves match what the user
+                # sees, then inset the copy's cropbox. set_cropbox wants unrotated
+                # mediabox coords and page.rect sits at the origin, so shift each
+                # half by the current cropbox's rotated offset before derotating -
+                # else a re-split crops from the mediabox origin, duplicating halves.
+                r = page.rect
                 mid = r.x0 + r.width * ratio
                 halves = (
                     pymupdf.Rect(r.x0, r.y0, mid, r.y1),
                     pymupdf.Rect(mid, r.y0, r.x1, r.y1),
                 )
-                for clip in halves:
-                    new_page = dst.new_page(width=clip.width, height=clip.height)
-                    new_page.show_pdf_page(new_page.rect, src, i, clip=clip)
+                cropbox_rot = pymupdf.Rect(page.cropbox) * page.rotation_matrix
+                cropbox_rot.normalize()
+                to_origin = pymupdf.Matrix(1, 0, 0, 1, cropbox_rot.x0, cropbox_rot.y0)
+                for disp in halves:
+                    dst.insert_pdf(src, from_page=i, to_page=i)
+                    box = pymupdf.Rect(disp * to_origin * page.derotation_matrix)
+                    box.normalize()
+                    dst[-1].set_cropbox(box)
             out.parent.mkdir(parents=True, exist_ok=True)
             dst.save(out)
             dst.close()
