@@ -192,10 +192,7 @@ class PreviewLabel(QLabel):
         area = self._scroll_area()
         if self._shown is None or area is None or self._fit_to_page:
             return False
-        return (
-            area.horizontalScrollBar().maximum() > 0
-            or area.verticalScrollBar().maximum() > 0
-        )
+        return area.horizontalScrollBar().maximum() > 0 or area.verticalScrollBar().maximum() > 0
 
     def _idle_cursor(self) -> Any:
         return Qt.OpenHandCursor if self._can_pan() else Qt.ArrowCursor

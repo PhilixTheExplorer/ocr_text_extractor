@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-09
+
+### Added
+
+- The page preview can be zoomed and panned.
+- Scrolling over the page preview moves between pages.
+- Run page ranges accept `all`, `odd`, and `even` keywords, with quick-select
+  buttons for each.
+
+### Fixed
+
+- Cropping a PDF page a second time no longer drifts. The new crop is now
+  anchored to the current cropbox, so it insets within the already-cropped
+  region instead of shifting back toward the original page origin.
+- The crop box stays visible when switching between page previews.
+
 ## [0.2.1] - 2026-06-30
 
 ### Fixed
