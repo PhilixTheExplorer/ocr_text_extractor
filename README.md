@@ -18,9 +18,22 @@ Docs OCR.
 
 Everything runs on your machine. The only network call is the optional OCR
 provider, which uses your own Google account, so there is nothing to pay for.
+Lexo is built especially for Myanmar OCR work: scanned books, old Burmese PDFs,
+dataset preparation, EPUB production, and other workflows where general-purpose
+Latin-first OCR tools often fall short. Other non-Latin languages can work too
+by passing the appropriate Google Docs OCR language hint.
 
 ## Features
 
+- Myanmar-first OCR workflow: Burmese is the default OCR language hint, with
+  Unicode normalization and bundled Myanmar font support for reliable review.
+- Free Google Docs OCR from your own account: no paid OCR API, no per-page
+  service fee, and no large local OCR model download.
+- Batch-friendly processing: open a PDF or a set of images, tune pages once, and
+  process many pages through the same desktop workflow.
+- Error recovery for long OCR runs: transient page failures are retried
+  automatically, and failed pages can be retried without re-running the whole
+  document.
 - PDF operations: extract page ranges, split, crop, rotate, merge, and split
   two-up spreads into separate pages.
 - Visual crop and split editor in the GUI: drag a crop box on the rendered page
@@ -29,7 +42,8 @@ provider, which uses your own Google account, so there is nothing to pay for.
 - Smart OCR routing: digital PDFs use their embedded text layer (instant and
   lossless); only scanned pages are OCR'd.
 - OCR via Google Docs OCR: free, high-accuracy (especially for Burmese), run on
-  your own Google account. Providers are pluggable behind a single interface.
+  your own Google account. Other non-Latin scripts can also work with the right
+  `--lang` value. Providers are pluggable behind a single interface.
 - Burmese-aware text handling: NFC normalization and zero-width-space-safe
   cleaning.
 - Proofread before you export: the desktop app shows each page beside an editable
@@ -60,6 +74,9 @@ dependencies to set up.
 ## Quick start
 
 ```bash
+# Launch the desktop app
+lexo gui
+
 # Digital PDF: extract the embedded text, instantly (plain text by default)
 lexo extract report.pdf -o report.txt
 
@@ -71,9 +88,6 @@ lexo ocr scan.pdf --lang my -o scan.txt
 lexo pdf extract book.pdf --pages "1-3,7,10-" -o subset.pdf
 lexo pdf split book.pdf --every 10
 lexo pdf crop book.pdf --top 8 --bottom 8 -o trimmed.pdf
-
-# Launch the desktop app
-lexo gui
 ```
 
 Run `lexo --help` (or `lexo pdf --help`) for the full command list.
@@ -167,11 +181,26 @@ Notes:
 ## Burmese notes
 
 - The OCR language hint defaults to `my`; override with `--lang`.
+- Other non-Latin languages may work through Google Docs OCR when you pass the
+  matching language hint.
 - Extracted text is normalized to Unicode NFC and zero-width spaces are
   preserved.
 - A Myanmar Unicode font ([Noto Sans Myanmar](https://fonts.google.com/noto/specimen/Noto+Sans+Myanmar),
   SIL Open Font License) is bundled so Burmese renders in the GUI regardless of
   installed system fonts. The license travels with it as `OFL.txt`.
+
+Lexo exists because many OCR tools are strongest on Latin-script documents. Local
+engines such as Tesseract and PaddleOCR can be useful, but Myanmar accuracy,
+setup size, and reliability vary a lot in practice. Lexo uses Google Docs OCR as
+the practical free path today, while keeping the OCR provider boundary open for
+better future options.
+
+## Future direction
+
+Lexo focuses on turning scanned or legacy Burmese documents into editable text.
+Document intelligence features such as layout-aware extraction, table structure,
+and semantic field detection are not built in yet. If a reliable free approach
+becomes available, they are natural next steps.
 
 ## Tech stack
 
