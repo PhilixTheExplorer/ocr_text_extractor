@@ -97,7 +97,10 @@ class BuildMixin:
         self.open_set_act.triggered.connect(self.open_image_set)
         self.batch_ocr_act = QAction("Batch OCR PDFs...", self)
         self.batch_ocr_act.setIcon(material_icon("dynamic_feed"))
-        self.batch_ocr_act.setToolTip("OCR multiple PDFs into separate TXT files")
+        self.batch_ocr_act.setShortcut("Ctrl+Alt+O")
+        self.batch_ocr_act.setToolTip(
+            "OCR multiple PDFs into separate TXT files (Ctrl+Alt+O)"
+        )
         self.batch_ocr_act.triggered.connect(self.batch_ocr)
         self.save_act = QAction("Save", self)
         self.save_act.setIcon(material_icon("save"))
