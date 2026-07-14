@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Batch PDF OCR is available in both the CLI and desktop app. The new
+  `lexo ocr-batch` command accepts PDF files or folders and exports one UTF-8
+  TXT file per source; existing outputs are skipped for resumable runs and can
+  be replaced with `--overwrite`.
+- The desktop batch workflow supports multi-file or folder selection, output
+  and OCR options, progress, cancellation, Google sign-in recovery, and the
+  `Ctrl+Alt+O` shortcut.
+
 ## [0.3.1] - 2026-07-09
 
 ### Fixed
