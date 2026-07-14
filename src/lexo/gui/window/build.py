@@ -95,6 +95,10 @@ class BuildMixin:
         self.open_set_act.setShortcut("Ctrl+Shift+O")
         self.open_set_act.setToolTip("Open several images as one multi-page document")
         self.open_set_act.triggered.connect(self.open_image_set)
+        self.batch_ocr_act = QAction("Batch OCR PDFs...", self)
+        self.batch_ocr_act.setIcon(material_icon("dynamic_feed"))
+        self.batch_ocr_act.setToolTip("OCR multiple PDFs into separate TXT files")
+        self.batch_ocr_act.triggered.connect(self.batch_ocr)
         self.save_act = QAction("Save", self)
         self.save_act.setIcon(material_icon("save"))
         self.save_act.setShortcut(QKeySequence.Save)
@@ -211,6 +215,7 @@ class BuildMixin:
         file_menu = self.menuBar().addMenu("&File")
         file_menu.addAction(self.open_act)
         file_menu.addAction(self.open_set_act)
+        file_menu.addAction(self.batch_ocr_act)
         file_menu.addSeparator()
         file_menu.addAction(self.save_act)
         file_menu.addAction(self.save_as_act)
@@ -257,7 +262,9 @@ class BuildMixin:
         self._build_pages_dock()
         self._build_work_surface()
 
-        self.empty_import_panel = WelcomePanel(self.open_act, self.open_set_act, self)
+        self.empty_import_panel = WelcomePanel(
+            self.open_act, self.open_set_act, self.batch_ocr_act, self
+        )
 
         self.central_stack = QStackedWidget()
         self.central_stack.addWidget(self.empty_import_panel)

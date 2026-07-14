@@ -36,8 +36,11 @@ try:  # PySide6 is optional until the user syncs GUI dependencies.
         QButtonGroup,
         QCheckBox,
         QComboBox,
+        QDialog,
+        QDialogButtonBox,
         QDockWidget,
         QFileDialog,
+        QFormLayout,
         QFrame,
         QGraphicsOpacityEffect,
         QGridLayout,
@@ -53,6 +56,7 @@ try:  # PySide6 is optional until the user syncs GUI dependencies.
         QMessageBox,
         QPlainTextEdit,
         QProgressBar,
+        QProgressDialog,
         QPushButton,
         QRadioButton,
         QScrollArea,
@@ -101,11 +105,12 @@ except ImportError:  # pragma: no cover - depends on optional GUI env
     QFont = QFontDatabase = _MissingWidget  # type: ignore[assignment]
     QPainter = QPen = QPixmap = _MissingWidget  # type: ignore[assignment]
     QApplication = QButtonGroup = QCheckBox = QComboBox = QDockWidget = _MissingWidget  # type: ignore[assignment]
-    QFileDialog = QFrame = QGridLayout = QGroupBox = QHBoxLayout = _MissingWidget  # type: ignore[assignment]
+    QDialog = QDialogButtonBox = QFileDialog = QFormLayout = _MissingWidget  # type: ignore[assignment]
+    QFrame = QGridLayout = QGroupBox = QHBoxLayout = _MissingWidget  # type: ignore[assignment]
     QInputDialog = _MissingWidget  # type: ignore[assignment]
     QLabel = QLineEdit = QListWidget = QListWidgetItem = _MissingWidget  # type: ignore[assignment]
     QMainWindow = QMenu = QMessageBox = QPlainTextEdit = _MissingWidget  # type: ignore[assignment]
-    QProgressBar = QPushButton = QRadioButton = QSpinBox = _MissingWidget  # type: ignore[assignment]
+    QProgressBar = QProgressDialog = QPushButton = QRadioButton = QSpinBox = _MissingWidget  # type: ignore[assignment]
     QScrollArea = _MissingWidget  # type: ignore[assignment]
     QSizePolicy = _MissingWidget  # type: ignore[assignment]
     QSplitter = QStackedWidget = QStatusBar = QStyle = _MissingWidget  # type: ignore[assignment]
@@ -123,10 +128,13 @@ __all__ = [
     "QColor",
     "QComboBox",
     "QDockWidget",
+    "QDialog",
+    "QDialogButtonBox",
     "QFileDialog",
     "QFont",
     "QFontDatabase",
     "QFrame",
+    "QFormLayout",
     "QGraphicsOpacityEffect",
     "QGridLayout",
     "QGroupBox",
@@ -147,6 +155,7 @@ __all__ = [
     "QPlainTextEdit",
     "QPoint",
     "QProgressBar",
+    "QProgressDialog",
     "QPropertyAnimation",
     "QPushButton",
     "QRadioButton",

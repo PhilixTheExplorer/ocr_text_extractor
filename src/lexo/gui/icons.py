@@ -53,6 +53,7 @@ CODEPOINTS: dict[str, int] = {
     "delete": 0xE872,
     "delete_sweep": 0xE16C,
     "description": 0xE873,
+    "dynamic_feed": 0xEA14,
     "error": 0xE000,
     "file_copy": 0xE173,
     "file_download": 0xE2C4,

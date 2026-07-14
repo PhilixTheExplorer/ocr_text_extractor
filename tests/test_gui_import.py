@@ -30,3 +30,15 @@ def test_bundled_myanmar_font_registers() -> None:
     from lexo.gui.resources import myanmar_font_family
 
     assert myanmar_font_family() == "Noto Sans Myanmar"
+
+
+def test_batch_ocr_dialog_constructs() -> None:
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from lexo.gui.batch_dialog import BatchOcrDialog
+    from lexo.gui.qt import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    dialog = BatchOcrDialog()
+    assert dialog.windowTitle() == "Batch OCR PDFs"
+    dialog.close()
+    assert app is not None

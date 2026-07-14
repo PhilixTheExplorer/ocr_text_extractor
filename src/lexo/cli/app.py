@@ -1,7 +1,8 @@
 """Lexo CLI entry point.
 
-Commands: ``info``, ``check-update``, ``extract``, ``ocr``, ``pdf {info,extract,
-split,crop,rotate,merge,split-spread}``, ``login``, ``logout``, ``gui``.
+Commands: ``info``, ``check-update``, ``extract``, ``ocr``, ``ocr-batch``,
+``pdf {info,extract,split,crop,rotate,merge,split-spread}``, ``login``,
+``logout``, ``gui``.
 """
 
 from __future__ import annotations
@@ -14,6 +15,13 @@ from typing import NoReturn
 import typer
 
 from lexo import __version__
+from lexo.batch import (
+    BatchEvent,
+    BatchOcrConfig,
+    BatchStatus,
+    collect_pdf_inputs,
+    run_batch_ocr,
+)
 from lexo.domain.events import Event, PageCompleted, PageFailed
 from lexo.domain.models import CropBox
 from lexo.domain.ranges import PageRanges
@@ -310,6 +318,56 @@ def ocr_cmd(
     if failed:
         nums = ", ".join(str(p.index + 1) for p in failed)
         typer.echo(f"warning: {len(failed)}/{len(doc.pages)} page(s) failed OCR: {nums}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command("ocr-batch")
+def ocr_batch_cmd(
+    inputs: list[Path] = typer.Argument(
+        ..., exists=True, help="PDF files and/or folders containing PDFs"
+    ),
+    out_dir: Path = typer.Option(..., "--out-dir", "-o", help="TXT output directory"),
+    lang: str | None = typer.Option(None, "--lang", help="OCR language (default: my)"),
+    force_ocr: bool = typer.Option(
+        True,
+        "--force-ocr/--no-force-ocr",
+        help="OCR every page instead of using embedded text",
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Replace existing TXT files"),
+) -> None:
+    """OCR multiple PDFs and write one UTF-8 TXT file per PDF."""
+    try:
+        config = BatchOcrConfig(
+            sources=collect_pdf_inputs(inputs),
+            output_dir=out_dir,
+            lang=lang,
+            force_ocr=force_ocr,
+            overwrite=overwrite,
+        )
+
+        def report(event: BatchEvent) -> None:
+            if event.status == BatchStatus.STARTED:
+                typer.echo(f"OCR: {event.source.name}")
+            elif event.status == BatchStatus.WRITTEN:
+                typer.echo(f"wrote: {event.output}")
+            elif event.status == BatchStatus.SKIPPED:
+                typer.echo(f"skip: {event.output}")
+            else:
+                typer.echo(
+                    f"{event.status}: {event.source.name}: {event.message}", err=True
+                )
+
+        summary = asyncio.run(
+            run_batch_ocr(LexoService.create(), config, on_event=report)
+        )
+    except Exception as exc:
+        _fail(exc)
+
+    typer.echo(
+        f"batch complete: {summary.written} written, {summary.skipped} skipped, "
+        f"{summary.failed} failed/missing"
+    )
+    if summary.failed:
         raise typer.Exit(1)
 
 

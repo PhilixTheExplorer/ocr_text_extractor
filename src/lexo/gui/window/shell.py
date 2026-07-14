@@ -16,11 +16,12 @@ from lexo.gui.document import WorkingDocument
 from lexo.gui.qt import QApplication, QLabel, QMainWindow, QMessageBox, QPixmap, QSettings, Qt
 from lexo.gui.resources import app_icon, logo_pixmap
 from lexo.gui.toast import Toast
+from lexo.gui.window.batch import BatchMixin
 from lexo.gui.window.build import BuildMixin
 from lexo.gui.window.editing import EditingMixin
 from lexo.gui.window.io import DocumentIOMixin
 from lexo.gui.window.run import RunMixin
-from lexo.gui.worker import ProcessWorker
+from lexo.gui.worker import BatchOcrWorker, ProcessWorker
 from lexo.infra import paths
 from lexo.pipeline.engine import CancellationToken
 from lexo.services import LexoService
@@ -35,7 +36,7 @@ def _format_bytes(size: int) -> str:
     return f"{value:.1f} GB"
 
 
-class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixin):
+class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixin, BatchMixin):
     def __init__(self) -> None:
         super().__init__()
         self.service = LexoService.create()
@@ -50,6 +51,9 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
         self._thumb_base: dict[int, QPixmap] = {}  # base thumbnails for status badges
         self.doc: ExtractedDoc | None = None  # last extract/OCR result
         self.worker: ProcessWorker | None = None
+        self.batch_worker: BatchOcrWorker | None = None
+        self.batch_token: CancellationToken | None = None
+        self.batch_progress: Any = None
         self.edit_worker: Any = None  # background page-edit thread (EditWorker)
         self._pending_move: tuple[list[int], set[int]] = ([], set())
         self.token: CancellationToken | None = None
@@ -247,6 +251,11 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
                 self.token.cancel()
             self.worker.blockSignals(True)
             self.worker.wait()
+        if self.batch_worker is not None:
+            if self.batch_token is not None:
+                self.batch_token.cancel()
+            self.batch_worker.blockSignals(True)
+            self.batch_worker.wait()
         # A page edit can't be cancelled mid-flight; just wait it out so its
         # QThread is gone before we drop the working files.
         if self.edit_worker is not None:
@@ -315,7 +324,11 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
 
     def _refresh(self) -> None:
         has_doc = self.page_count > 0
-        busy = self.worker is not None or self.edit_worker is not None
+        busy = (
+            self.worker is not None
+            or self.batch_worker is not None
+            or self.edit_worker is not None
+        )
         is_pdf = self.document.is_pdf if self.document else False
         editable = has_doc and not busy
         if hasattr(self, "extract_mode_btn"):
@@ -337,6 +350,7 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
         self.save_act.setEnabled(has_doc and not busy)
         self.save_as_act.setEnabled(has_doc and not busy)
         self.export_act.setEnabled(self.doc is not None and not busy)
+        self.batch_ocr_act.setEnabled(not busy)
         self.extract_mode_btn.setEnabled(not busy)
         self.ocr_mode_btn.setEnabled(not busy)
         self.pages_field.setEnabled(not busy)

@@ -28,6 +28,7 @@ class WelcomePanel(QWidget):
         self,
         open_action: QAction,
         open_set_action: QAction,
+        batch_action: QAction,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -102,8 +103,15 @@ class WelcomePanel(QWidget):
         image_set_button.setIconSize(QSize(18, 18))
         image_set_button.setToolTip("Open several images as one multi-page document")
         image_set_button.clicked.connect(open_set_action.trigger)
+        batch_button = QPushButton("Batch OCR PDFs")
+        batch_button.setObjectName("SecondaryButton")
+        batch_button.setIcon(batch_action.icon())
+        batch_button.setIconSize(QSize(18, 18))
+        batch_button.setToolTip("OCR multiple PDFs into separate TXT files")
+        batch_button.clicked.connect(batch_action.trigger)
         actions_layout.addWidget(import_button, 0, Qt.AlignCenter)
         actions_layout.addWidget(image_set_button, 0, Qt.AlignCenter)
+        actions_layout.addWidget(batch_button, 0, Qt.AlignCenter)
         layout.addWidget(actions_group, 0, Qt.AlignCenter)
 
         # Below the buttons: how the workflow runs.

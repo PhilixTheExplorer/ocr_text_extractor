@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+from lexo.batch import BatchOcrConfig, run_batch_ocr
 from lexo.gui.qt import QThread, Signal
 from lexo.infra.auth_google import AuthError
 from lexo.pipeline.engine import CancellationToken, Cancelled
@@ -62,3 +63,41 @@ class ProcessWorker(QThread):
             self.failed.emit(str(exc))
         else:
             self.done.emit(doc)
+
+
+class BatchOcrWorker(QThread):
+    event = Signal(object)
+    done = Signal(object)
+    failed = Signal(str)
+    auth_required = Signal(str)
+    cancelled = Signal()
+
+    def __init__(
+        self,
+        service: LexoService,
+        config: BatchOcrConfig,
+        token: CancellationToken,
+    ) -> None:
+        super().__init__()
+        self.service = service
+        self.config = config
+        self.token = token
+
+    def run(self) -> None:
+        try:
+            summary = asyncio.run(
+                run_batch_ocr(
+                    self.service,
+                    self.config,
+                    on_event=lambda event: self.event.emit(event),
+                    token=self.token,
+                )
+            )
+        except Cancelled:
+            self.cancelled.emit()
+        except AuthError as exc:  # pragma: no cover - shown through UI
+            self.auth_required.emit(str(exc))
+        except Exception as exc:  # pragma: no cover - shown through UI
+            self.failed.emit(str(exc))
+        else:
+            self.done.emit(summary)
