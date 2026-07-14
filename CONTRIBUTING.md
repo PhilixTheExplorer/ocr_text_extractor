@@ -23,6 +23,15 @@ Launch the desktop app with:
 uv run lexo gui
 ```
 
+Install the repository's Git hooks once after cloning:
+
+```bash
+uv run lefthook install
+```
+
+The pre-push hook runs the same Ruff, Mypy, and Pytest checks as CI. Run it
+manually at any time with `uv run lefthook run pre-push`.
+
 ## Before opening a pull request
 
 Please run the smallest checks that match your change. For code changes, the
@@ -31,6 +40,7 @@ usual checks are:
 ```bash
 uv run pytest
 uv run ruff check src tests
+uv run ruff format --check src tests
 uv run mypy src
 ```
 

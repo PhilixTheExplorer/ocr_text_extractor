@@ -58,6 +58,7 @@ dev = [
   "ruff>=0.6",
   "mypy>=1.11",
   "pytest>=8.2",
+  "lefthook>=2.1.10",
 ]
 
 [tool.hatch.version]

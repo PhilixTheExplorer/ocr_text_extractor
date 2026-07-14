@@ -1,0 +1,14 @@
+pre-push:
+  parallel: true
+  jobs:
+    - name: ruff-lint
+      run: uv run ruff check src tests
+
+    - name: ruff-format
+      run: uv run ruff format --check src tests
+
+    - name: mypy
+      run: uv run mypy src/lexo
+
+    - name: pytest
+      run: uv run pytest
