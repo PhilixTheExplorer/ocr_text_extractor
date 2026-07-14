@@ -29,8 +29,8 @@ by passing the appropriate Google Docs OCR language hint.
   Unicode normalization and bundled Myanmar font support for reliable review.
 - Free Google Docs OCR from your own account: no paid OCR API, no per-page
   service fee, and no large local OCR model download.
-- Batch-friendly processing: open a PDF or a set of images, tune pages once, and
-  process many pages through the same desktop workflow.
+- Multi-PDF batch OCR: process selected PDF files or every PDF in a folder,
+  exporting one resumable UTF-8 TXT file per PDF.
 - Error recovery for long OCR runs: transient page failures are retried
   automatically, and failed pages can be retried without re-running the whole
   document.
@@ -73,24 +73,61 @@ dependencies to set up.
 
 ## Quick start
 
+For the desktop workflow, launch the app, open a document, choose text extraction
+or Google Docs OCR, review the result, and export it:
+
 ```bash
-# Launch the desktop app
 lexo gui
+```
 
-# Digital PDF: extract the embedded text, instantly (plain text by default)
+For the CLI, digital PDFs can be extracted without an account:
+
+```bash
 lexo extract report.pdf -o report.txt
+```
 
-# Scanned PDF or image: OCR it (Burmese by default) with your Google account
+Scanned PDFs and images use Google Docs OCR. Complete the one-time Google setup
+below, sign in, then run OCR:
+
+```bash
 lexo login
 lexo ocr scan.pdf --lang my -o scan.txt
+```
 
-# PDF operations
+Basic PDF operations do not require Google sign-in:
+
+```bash
 lexo pdf extract book.pdf --pages "1-3,7,10-" -o subset.pdf
 lexo pdf split book.pdf --every 10
 lexo pdf crop book.pdf --top 8 --bottom 8 -o trimmed.pdf
 ```
 
 Run `lexo --help` (or `lexo pdf --help`) for the full command list.
+
+## Batch OCR PDFs
+
+Use batch OCR to process multiple PDFs without opening and exporting each one
+separately. Pass a folder to process every PDF directly inside it:
+
+```bash
+lexo login
+lexo ocr-batch ./pdfs --out-dir ./txt
+```
+
+You can also pass specific PDF files:
+
+```bash
+lexo ocr-batch chapter-a.pdf chapter-b.pdf --out-dir ./txt
+```
+
+Lexo keeps each source filename and changes its extension to `.txt`. Existing
+TXT files are skipped so an interrupted batch can resume; pass `--overwrite` to
+replace them. Batch OCR processes every page visually by default. Pass
+`--no-force-ocr` if usable embedded text should be preserved instead.
+
+In the desktop app, choose **Batch OCR PDFs** on the welcome screen or open
+**File -> Batch OCR PDFs...**. Select individual PDFs or load every PDF from a
+folder, choose the output folder, and start OCR.
 
 ## Video walkthroughs
 
@@ -137,13 +174,15 @@ https://github.com/user-attachments/assets/9cd60cbc-6a2b-4925-b076-89e97346e391
 |---------|---------|
 | `lexo extract <pdf>` | Extract the embedded text layer of a digital PDF |
 | `lexo ocr <pdf\|image>` | OCR a scanned document (`--lang`, `--force-ocr`) |
+| `lexo ocr-batch <files-or-folders> -o <directory>` | OCR multiple PDFs to individual UTF-8 TXT files |
 | `lexo pdf info\|extract\|split\|crop\|rotate\|merge\|split-spread` | PDF operations |
 | `lexo login` / `lexo logout` | Sign in to / out of Google (token stored in the OS keychain) |
 | `lexo gui` | Launch the desktop app |
 | `lexo info` | Show the version and where Lexo stores its data |
 | `lexo check-update` | Check PyPI for a newer release |
 
-All output formats are available via `--format text|markdown|jsonl`.
+Single-document extraction and OCR support `--format text|markdown|jsonl`.
+Batch OCR exports plain text.
 
 ## Google Docs OCR setup (one-time)
 
