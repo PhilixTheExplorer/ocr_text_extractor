@@ -139,9 +139,7 @@ async def run_batch_ocr(
             )
             continue
 
-        emit(
-            BatchEvent(position, config.total, source, output, BatchStatus.STARTED)
-        )
+        emit(BatchEvent(position, config.total, source, output, BatchStatus.STARTED))
         try:
             doc = await service.ocr(
                 source,
@@ -171,8 +169,6 @@ async def run_batch_ocr(
             continue
 
         written += 1
-        emit(
-            BatchEvent(position, config.total, source, output, BatchStatus.WRITTEN)
-        )
+        emit(BatchEvent(position, config.total, source, output, BatchStatus.WRITTEN))
 
     return BatchSummary(written=written, skipped=skipped, failed=failed)

@@ -353,13 +353,9 @@ def ocr_batch_cmd(
             elif event.status == BatchStatus.SKIPPED:
                 typer.echo(f"skip: {event.output}")
             else:
-                typer.echo(
-                    f"{event.status}: {event.source.name}: {event.message}", err=True
-                )
+                typer.echo(f"{event.status}: {event.source.name}: {event.message}", err=True)
 
-        summary = asyncio.run(
-            run_batch_ocr(LexoService.create(), config, on_event=report)
-        )
+        summary = asyncio.run(run_batch_ocr(LexoService.create(), config, on_event=report))
     except Exception as exc:
         _fail(exc)
 

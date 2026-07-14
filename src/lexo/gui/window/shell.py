@@ -325,9 +325,7 @@ class MainWindow(QMainWindow, BuildMixin, DocumentIOMixin, EditingMixin, RunMixi
     def _refresh(self) -> None:
         has_doc = self.page_count > 0
         busy = (
-            self.worker is not None
-            or self.batch_worker is not None
-            or self.edit_worker is not None
+            self.worker is not None or self.batch_worker is not None or self.edit_worker is not None
         )
         is_pdf = self.document.is_pdf if self.document else False
         editable = has_doc and not busy

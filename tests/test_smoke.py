@@ -35,9 +35,7 @@ def test_cli_ocr_batch_writes_txt_for_folder(monkeypatch, tmp_path: Path) -> Non
     class FakeService:
         async def ocr(self, path: Path, **kwargs) -> ExtractedDoc:
             assert path.name == "part006.pdf"
-            return ExtractedDoc(
-                "id", path.name, 1, [PageText(0, "မြန်မာ", TextKind.SCANNED)]
-            )
+            return ExtractedDoc("id", path.name, 1, [PageText(0, "မြန်မာ", TextKind.SCANNED)])
 
         def export(self, doc: ExtractedDoc, fmt: str) -> str:
             assert fmt == "text"
