@@ -34,8 +34,12 @@ def test_bundled_myanmar_font_registers() -> None:
 
 def test_batch_ocr_dialog_constructs() -> None:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from lexo.gui.qt import QT_AVAILABLE, QApplication
+
+    if not QT_AVAILABLE:
+        pytest.skip("PySide6 is unavailable in this environment")
+
     from lexo.gui.batch_dialog import BatchOcrDialog
-    from lexo.gui.qt import QApplication
 
     app = QApplication.instance() or QApplication([])
     dialog = BatchOcrDialog()
