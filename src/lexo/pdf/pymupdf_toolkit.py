@@ -169,18 +169,25 @@ class PyMuPdfToolkit:
                 if i not in selected:
                     continue
                 page = doc[i]
+                # box is in displayed coords; set_cropbox wants unrotated mediabox
+                # ones - without derotating, /Rotate 90 and 270 pages mirror.
+                r = page.rect
                 if box.relative:
-                    # cropbox, not page.rect: set_cropbox wants mediabox-relative
-                    # coords, so a second crop insets the visible region.
-                    r = page.cropbox
-                    new = pymupdf.Rect(
+                    disp = pymupdf.Rect(
                         r.x0 + box.left * r.width,
                         r.y0 + box.top * r.height,
                         r.x0 + box.right * r.width,
                         r.y0 + box.bottom * r.height,
                     )
                 else:
-                    new = pymupdf.Rect(box.left, box.top, box.right, box.bottom)
+                    disp = pymupdf.Rect(box.left, box.top, box.right, box.bottom)
+                # page.rect sits at the origin, so restore the cropbox offset first
+                # or a second crop measures from the mediabox origin.
+                cropbox_rot = pymupdf.Rect(page.cropbox) * page.rotation_matrix
+                cropbox_rot.normalize()
+                to_origin = pymupdf.Matrix(1, 0, 0, 1, cropbox_rot.x0, cropbox_rot.y0)
+                new = pymupdf.Rect(disp * to_origin * page.derotation_matrix)
+                new.normalize()
                 page.set_cropbox(new)
             out.parent.mkdir(parents=True, exist_ok=True)
             doc.save(out)

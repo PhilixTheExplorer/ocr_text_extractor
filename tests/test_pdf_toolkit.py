@@ -105,6 +105,36 @@ def test_crop_twice_insets_within_visible_region(
     assert cb.y1 == pytest.approx(media.height * 0.82)
 
 
+def test_crop_trims_same_visible_edge_under_any_rotation(
+    tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Path
+) -> None:
+    """Pages alternating /Rotate 90 and 270 must crop identically, not mirrored."""
+    import pymupdf
+
+    pdf = make_pdf(tmp_path / "a.pdf", 4)
+    doc = pymupdf.open(pdf)
+    for i in range(doc.page_count):
+        doc[i].set_rotation(270 if i % 2 == 0 else 90)
+    doc.save(tmp_path / "rot.pdf")
+    doc.close()
+
+    src = pymupdf.open(tmp_path / "rot.pdf")
+    # Trim 20% off the top as the user sees it.
+    out = tk.crop(tmp_path / "rot.pdf", CropBox(0.0, 0.2, 1.0, 1.0), tmp_path / "c.pdf")
+    result = pymupdf.open(out)
+
+    for i in range(result.page_count):
+        want = src[i].rect
+        want = pymupdf.Rect(want.x0, want.y0 + 0.2 * want.height, want.x1, want.y1)
+        expected = src[i].get_pixmap(dpi=72, clip=want)
+        actual = result[i].get_pixmap(dpi=72)
+        assert (actual.width, actual.height) == (expected.width, expected.height)
+        assert actual.samples == expected.samples, f"page {i} cropped the wrong edge"
+
+    src.close()
+    result.close()
+
+
 def test_rotate(tk: PyMuPdfToolkit, make_pdf: MakePdf, tmp_path: Path) -> None:
     pdf = make_pdf(tmp_path / "a.pdf", 2)
     out = tk.rotate(pdf, 90, tmp_path / "r.pdf")
