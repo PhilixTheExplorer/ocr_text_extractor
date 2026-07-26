@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://pypi.org/project/lexo/"><img src="https://img.shields.io/pypi/v/lexo.svg" alt="PyPI version"></a>
   <a href="https://pypi.org/project/lexo/"><img src="https://img.shields.io/pypi/pyversions/lexo.svg" alt="Python versions"></a>
+  <a href="https://pepy.tech/projects/lexo"><img src="https://api.pepy.tech/badge/lexo" alt="Total PyPI downloads"></a>
   <a href="https://github.com/PhilixTheExplorer/lexo/actions/workflows/ci.yml"><img src="https://github.com/PhilixTheExplorer/lexo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
 </p>
