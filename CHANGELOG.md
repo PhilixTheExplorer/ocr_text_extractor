@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-26
+
+### Fixed
+
+- Cropping rotated PDF pages now trims the edge shown in the preview instead
+  of mirroring the crop on pages rotated 90 or 270 degrees.
+
 ## [0.4.0] - 2026-07-14
 
 ### Added
