@@ -9,7 +9,11 @@
   <a href="https://pypi.org/project/lexo/"><img src="https://img.shields.io/pypi/pyversions/lexo.svg" alt="Python versions"></a>
   <a href="https://pepy.tech/projects/lexo"><img src="https://api.pepy.tech/badge/lexo" alt="Total PyPI downloads"></a>
   <a href="https://github.com/PhilixTheExplorer/lexo/actions/workflows/ci.yml"><img src="https://github.com/PhilixTheExplorer/lexo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
+  <a href="https://github.com/PhilixTheExplorer/lexo/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
+</p>
+
+<p align="center">
+  <b>English</b> | <a href="https://github.com/PhilixTheExplorer/lexo/blob/main/README.my.md">မြန်မာ</a>
 </p>
 
 **Lexo** stands for **L**ocal **EX**traction and **O**CR: a local-first desktop
@@ -160,12 +164,14 @@ https://github.com/user-attachments/assets/b247cdc5-0421-4400-bc6c-f4dc35268268
 
 Some Burmese documents were created with old non-Unicode Windows fonts such as
 Win Innwa or Win Myanmar. These fonts render Burmese glyphs by mapping them onto
-ASCII codepoints, so the PDF actually stores English characters internally - the
+ASCII codepoints, so the PDF actually stores English characters internally—the
 font is what makes them look Burmese on screen. When you run text extraction on
 such a file, you get those raw ASCII characters back, which is technically correct
-but not useful as Burmese text. This video shows how to recognise this case in the
-GUI and switch to Google Docs OCR instead, which reads the page visually and
-returns proper Unicode Burmese.
+but not useful directly as Burmese text.
+
+*(Note: Alternatively, you can extract the raw ASCII text layer and use a Win-to-Unicode font converter tool to convert it into Myanmar Unicode text. Google Docs OCR provides a direct visual alternative that bypasses manual font conversion).*
+
+This video shows how to recognise this case in the GUI and switch to Google Docs OCR instead, which reads the page visually and returns proper Unicode Burmese.
 
 https://github.com/user-attachments/assets/9cd60cbc-6a2b-4925-b076-89e97346e391
 
@@ -269,14 +275,14 @@ uv run mypy src/lexo
 uv run pytest
 ```
 
-Design notes live in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Design notes live in [docs/ARCHITECTURE.md](https://github.com/PhilixTheExplorer/lexo/blob/main/docs/ARCHITECTURE.md).
 
 ## Contributing
 
 Bug reports, documentation fixes, and focused pull requests are welcome. Please
-see [CONTRIBUTING.md](CONTRIBUTING.md) for setup notes, recommended checks, and
+see [CONTRIBUTING.md](https://github.com/PhilixTheExplorer/lexo/blob/main/CONTRIBUTING.md) for setup notes, recommended checks, and
 privacy guidance before attaching sample PDFs or images.
 
 ## License
 
-AGPL-3.0, to align with PyMuPDF. See [LICENSE](LICENSE).
+Dual licensed or AGPL-3.0. See [LICENSE](https://github.com/PhilixTheExplorer/lexo/blob/main/LICENSE).
